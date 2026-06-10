@@ -102,37 +102,77 @@ function setupSvgDropTargets(svg){
     });
   });
 
-  // mapping-mode click handler: attach to both shapes and groups so user can assign groups
-  const mappingTargets = svg.querySelectorAll('path, polygon, rect, circle, ellipse, g');
+  // mapping-mode click handler: attach to indexed shapes so user can assign names
+  const mappingTargets = svg.querySelectorAll('[data-shape-index]');
   mappingTargets.forEach(el => {
-    el.addEventListener('click', (ev)=>{
+    el.addEventListener('click', async (ev)=>{
       const container = document.getElementById('map-container');
       if(!container.classList.contains('mapping-mode')) return;
       ev.stopPropagation(); ev.preventDefault();
       const idx = el.getAttribute('data-shape-index');
       const current = (window.__SVG_MAPPING && window.__SVG_MAPPING[idx]) || el.getAttribute('data-name') || '';
-      const answer = window.prompt('Asignar municipio a esta área (index '+idx+')', current || '');
-      if(answer !== null){
-        window.__SVG_MAPPING = window.__SVG_MAPPING || {};
-        window.__SVG_MAPPING[idx] = answer.trim();
-        // if it's a group, apply to children too
-        if(el.tagName && el.tagName.toLowerCase() === 'g'){
-          Array.from(el.querySelectorAll('path, polygon, rect, circle, ellipse')).forEach(child=>{
-            child.setAttribute('data-name', answer.trim());
-            child.classList.add('mapped');
-          });
-        }
-        el.classList.add('mapped');
-
-        flashNotification('Asignado: '+answer.trim());
+      const answer = await openMappingModal(current);
+      if(answer === null) return; // cancelled
+      window.__SVG_MAPPING = window.__SVG_MAPPING || {};
+      if(answer === ''){
+        delete window.__SVG_MAPPING[idx];
+        el.removeAttribute('data-name');
+        el.classList.remove('mapped');
+        flashNotification('Asignación eliminada');
+        return;
       }
+      window.__SVG_MAPPING[idx] = answer;
+      el.setAttribute('data-name', answer);
+      el.classList.add('mapped');
+      flashNotification('Asignado: '+answer);
     });
+  });
+}
+
+// Populate and show the mapping modal, resolving with the chosen name,
+// '' if the user cleared the assignment, or null if cancelled.
+function openMappingModal(currentValue){
+  return new Promise((resolve)=>{
+    const modal = document.getElementById('mapping-modal');
+    const sel = document.getElementById('mapping-select');
+    const confirmBtn = document.getElementById('mapping-confirm');
+    const cancelBtn = document.getElementById('mapping-cancel');
+    const clearBtn = document.getElementById('mapping-clear');
+
+    sel.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = '-- sin asignar --';
+    sel.appendChild(emptyOpt);
+    (window.__ALL_NAMES || []).forEach(name=>{
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if(name === currentValue) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    modal.classList.remove('hidden');
+
+    function cleanup(){
+      modal.classList.add('hidden');
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      clearBtn.removeEventListener('click', onClear);
+    }
+    function onConfirm(){ const v = sel.value; cleanup(); resolve(v); }
+    function onCancel(){ cleanup(); resolve(null); }
+    function onClear(){ cleanup(); resolve(''); }
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    clearBtn.addEventListener('click', onClear);
   });
 }
 
 async function init(){
   const listsContainer = document.getElementById('lists');
   const data = await loadData();
+  window.__ALL_NAMES = Object.values(data).flat().sort((a,b)=> a.localeCompare(b, 'ca'));
 
   Object.keys(data).forEach(k=>{
     const node = createListSection(k, data[k]);
@@ -326,57 +366,6 @@ function setupToolbar(){
     const res = await fetch('/api/mapping', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mapping) });
     if(res.ok) flashNotification('Mapeo guardado'); else flashNotification('Error al guardar');
   });
-  const autoBtn = document.getElementById('auto-mapping');
-  autoBtn && autoBtn.addEventListener('click', async ()=>{
-    flashNotification('Intentando auto-mapeo...');
-    try{
-      const ds = await loadData();
-      // merge all datasource lines into one array
-      const municipalities = Object.values(ds).flat();
-      await autoMap(svg, municipalities);
-      flashNotification('Auto-mapeo completado');
-    }catch(e){
-      console.error(e);
-      flashNotification('Auto-mapeo fallido');
-    }
-  });
-}
-
-async function autoMap(svg, municipalities){
-  // simple exact-normalized matching across shapes and groups
-  const nodes = Array.from(svg.querySelectorAll('g, path, polygon, rect, circle, ellipse'));
-  const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0000-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
-  const used = new Set();
-  window.__SVG_MAPPING = window.__SVG_MAPPING || {};
-  const attrMap = nodes.map((el, idx) => {
-    const attrs = [];
-    if(el.id) attrs.push(el.id);
-    const dn = el.getAttribute('data-name'); if(dn) attrs.push(dn);
-    const titleEl = el.querySelector && el.querySelector('title'); if(titleEl) attrs.push(titleEl.textContent||'');
-    return { idx, el, attrs: attrs.map(a=>norm(a)).filter(Boolean) };
-  });
-
-  for(const name of municipalities){
-    const n = norm(name);
-    if(!n) continue;
-    let found = attrMap.find(a=> a.attrs.includes(n) && !used.has(a.idx));
-    if(!found){
-      found = attrMap.find(a=> a.attrs.some(v=> v.includes(n)) && !used.has(a.idx));
-    }
-    if(found){
-      window.__SVG_MAPPING[found.idx] = name;
-      found.el.setAttribute('data-name', name);
-      found.el.classList.add('mapped');
-      used.add(found.idx);
-      // if it's a group, propagate to children
-      if(found.el.tagName && found.el.tagName.toLowerCase() === 'g'){
-        Array.from(found.el.querySelectorAll('path, polygon, rect, circle, ellipse')).forEach(child=>{
-          child.setAttribute('data-name', name);
-          child.classList.add('mapped');
-        });
-      }
-    }
-  }
 }
 
 // small helper to send a custom event to zoom handlers

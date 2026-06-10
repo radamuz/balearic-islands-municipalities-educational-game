@@ -21,7 +21,6 @@
           <button id="zoom-out" title="Alejar">−</button>
           <button id="zoom-reset" title="Restablecer">⟳</button>
           <button id="edit-mapping" title="Editar mapeo">🗺️ Mapeo</button>
-          <button id="auto-mapping" title="Auto-mapeo">🔎 Auto</button>
           <button id="save-mapping" title="Guardar mapeo">💾 Guardar</button>
           <button id="toggle-lists-mobile" class="mobile-only" title="Mostrar/Ocultar lista">☰</button>
         </div>
@@ -37,6 +36,18 @@
       <ul class="items"></ul>
     </section>
   </template>
+
+  <div id="mapping-modal" class="hidden">
+    <div class="mapping-modal-box">
+      <h3>Asignar nombre a esta forma</h3>
+      <select id="mapping-select"></select>
+      <div class="mapping-modal-actions">
+        <button id="mapping-clear" type="button">Quitar asignación</button>
+        <button id="mapping-cancel" type="button">Cancelar</button>
+        <button id="mapping-confirm" type="button">Asignar</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/app-zoom.js"></script>
 </body>

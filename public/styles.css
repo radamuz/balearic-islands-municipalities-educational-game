@@ -42,6 +42,15 @@ aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px
   #map-container{min-height:420px}
 }
 
+/* Manual mapping modal */
+#mapping-modal{position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:1000}
+#mapping-modal.hidden{display:none}
+.mapping-modal-box{background:#fff; padding:16px; border-radius:8px; min-width:280px; box-shadow:0 4px 18px rgba(0,0,0,0.25)}
+.mapping-modal-box h3{margin:0 0 10px}
+.mapping-modal-box select{width:100%; padding:6px; font-size:14px}
+.mapping-modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
+.mapping-modal-actions button{padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer}
+
 /* Labels shown on matched SVG shapes */
 #map-container svg .svg-label{
   fill: #003300;
