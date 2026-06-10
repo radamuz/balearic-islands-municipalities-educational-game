@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Juego Educacional - Illes Balears</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>Juego: Arrastra la isla/municipio al mapa</h1>
+    <p>Arrastra cada nombre a su lugar en el mapa. Verás si aciertas.</p>
+  </header>
+
+  <main>
+    <section id="panels">
+      <aside id="lists"></aside>
+      <div id="map-area">
+        <div id="map-container">Cargando mapa...</div>
+        <div id="score">Aciertos: <span id="correct">0</span></div>
+      </div>
+    </section>
+  </main>
+
+  <template id="list-template">
+    <section class="source">
+      <h2 class="source-title"></h2>
+      <ul class="items"></ul>
+    </section>
+  </template>
+
+  <script src="/app.js"></script>
+</body>
+</html>

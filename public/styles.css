@@ -1,0 +1,19 @@
+:root{
+  --gap: 12px;
+}
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; padding:16px;}
+header{margin-bottom:12px}
+#panels{display:flex;gap:var(--gap)}
+aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px solid #ddd; border-radius:6px}
+.source{margin-bottom:14px}
+.source-title{font-size:14px; margin:6px 0}
+.items{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px}
+.item{padding:8px 10px; background:#f7f7f7; border-radius:6px; cursor:grab}
+.item.placed{opacity:0.5; text-decoration:line-through; cursor:default}
+#map-area{flex:1; display:flex; flex-direction:column; gap:8px}
+#map-container{flex:1; border:1px solid #ddd; border-radius:6px; padding:8px; min-height:520px}
+#score{padding:8px}
+.svg-drop-target.matched{stroke:#006400 !important; fill:#6fcd8a !important}
+.svg-drop-target.incorrect{animation:shake 0.4s}
+.notification{position:fixed; right:16px; bottom:16px; padding:10px 14px; background:#222; color:#fff; border-radius:8px; opacity:0.95}
+@keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
