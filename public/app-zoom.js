@@ -39,13 +39,11 @@ function flashNotification(text){
 }
 
 function setupSvgDropTargets(svg){
-  // find all elements that can be drop targets (have id or data-name)
-  const candidates = svg.querySelectorAll('*');
-  candidates.forEach(el=>{
-    // check data-name first (from saved mapping), then id/name/inkscape label
+  // drop-target shapes
+  const shapeTargets = svg.querySelectorAll('path, polygon, rect, circle, ellipse');
+  shapeTargets.forEach(el=>{
     const nameAttr = el.getAttribute('data-name') || el.id || el.getAttribute('name') || el.getAttribute('inkscape:label');
     if(!nameAttr) return;
-    // make it visually pointer
     el.classList.add('svg-drop-target');
     el.style.cursor = 'pointer';
     el.addEventListener('dragover', (e)=>{ e.preventDefault(); });
@@ -53,7 +51,7 @@ function setupSvgDropTargets(svg){
       e.preventDefault();
       const dragged = e.dataTransfer.getData('text/plain');
       const placedName = dragged;
-      const targetName = nameAttr;
+      const targetName = el.getAttribute('data-name') || nameAttr;
       const ok = normalizeKey(placedName) === normalizeKey(targetName);
       if(ok){
         // mark as matched
@@ -73,23 +71,15 @@ function setupSvgDropTargets(svg){
             svgRoot.appendChild(text);
             el.setAttribute('data-labeled', 'true');
           }
-        }catch(e){
-          // ignore if getBBox or SVG DOM isn't available
-          console.warn('Could not place label on SVG element', e);
-        }
-        // style the matched element via inline styles to ensure visibility
+        }catch(e){ console.warn('Could not place label on SVG element', e); }
+        // style only the matched element (or its children if it's a group placeholder)
         try{
           const applyStyle = (node)=>{
             if(!(node instanceof Element)) return;
             node.style.fill = '#6fcd8a';
             node.style.stroke = '#006400';
-            node.style.strokeWidth = (node.style.strokeWidth || 1) + 'px';
             node.style.transition = 'fill 200ms ease, stroke 200ms ease';
           };
-          if(el.tagName && el.tagName.toLowerCase() === 'g'){
-            // apply to child shapes
-            Array.from(el.querySelectorAll('path, polygon, rect, circle, ellipse')).forEach(applyStyle);
-          }
           applyStyle(el);
         }catch(e){}
         // find the draggable item and mark placed
@@ -110,8 +100,11 @@ function setupSvgDropTargets(svg){
         flashNotification('Incorrecto');
       }
     });
+  });
 
-    // mapping-mode click handler: if mapping active, clicking assigns a name
+  // mapping-mode click handler: attach to both shapes and groups so user can assign groups
+  const mappingTargets = svg.querySelectorAll('path, polygon, rect, circle, ellipse, g');
+  mappingTargets.forEach(el => {
     el.addEventListener('click', (ev)=>{
       const container = document.getElementById('map-container');
       if(!container.classList.contains('mapping-mode')) return;
@@ -120,11 +113,17 @@ function setupSvgDropTargets(svg){
       const current = (window.__SVG_MAPPING && window.__SVG_MAPPING[idx]) || el.getAttribute('data-name') || '';
       const answer = window.prompt('Asignar municipio a esta área (index '+idx+')', current || '');
       if(answer !== null){
-        // store mapping
         window.__SVG_MAPPING = window.__SVG_MAPPING || {};
         window.__SVG_MAPPING[idx] = answer.trim();
-        el.setAttribute('data-name', answer.trim());
+        // if it's a group, apply to children too
+        if(el.tagName && el.tagName.toLowerCase() === 'g'){
+          Array.from(el.querySelectorAll('path, polygon, rect, circle, ellipse')).forEach(child=>{
+            child.setAttribute('data-name', answer.trim());
+            child.classList.add('mapped');
+          });
+        }
         el.classList.add('mapped');
+
         flashNotification('Asignado: '+answer.trim());
       }
     });
@@ -134,6 +133,7 @@ function setupSvgDropTargets(svg){
 async function init(){
   const listsContainer = document.getElementById('lists');
   const data = await loadData();
+
   Object.keys(data).forEach(k=>{
     const node = createListSection(k, data[k]);
     listsContainer.appendChild(node);
@@ -150,8 +150,8 @@ async function init(){
     return;
   }
 
-  // assign stable indexes to candidate shapes and load mapping
-  const candidates = svg.querySelectorAll('path, polygon, rect, circle, ellipse, g');
+  // assign stable indexes to candidate shape elements (exclude groups)
+  const candidates = svg.querySelectorAll('path, polygon, rect, circle, ellipse');
   const mappingResp = await fetch('/api/mapping');
   const savedMapping = await mappingResp.json();
   candidates.forEach((el, idx)=>{
@@ -167,6 +167,129 @@ async function init(){
   setupToolbar();
   // expose mapping state
   window.__SVG_MAPPING = savedMapping || {};
+}
+
+// Use SVG viewBox for crisp zooming and panning (vector-scaled)
+function setupZoomPan(container, svg){
+  // read or initialize viewBox
+  const vbAttr = svg.getAttribute('viewBox');
+  let vb = { x:0, y:0, w: svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal.width : svg.clientWidth, h: svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.height ? svg.viewBox.baseVal.height : svg.clientHeight };
+  if(vbAttr){
+    const parts = vbAttr.split(/\s+/).map(Number);
+    if(parts.length === 4) vb = { x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
+  } else {
+    svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  }
+
+  const minScale = 0.2, maxScale = 8; // scale relative to initial
+  const initial = { ...vb };
+
+  function setViewBox(x,y,w,h){
+    vb = { x,y,w,h };
+    svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+  }
+
+  function clientToSvgPoint(clientX, clientY){
+    const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
+    const ctm = svg.getScreenCTM();
+    if(!ctm) return { x: clientX, y: clientY };
+    const inv = ctm.inverse();
+    const p = pt.matrixTransform(inv);
+    return { x: p.x, y: p.y };
+  }
+
+  function clampScale(scale){ return Math.max(minScale, Math.min(maxScale, scale)); }
+
+  // handle zoom requests (buttons)
+  window.addEventListener('app-zoom', (e)=>{
+    const d = e.detail;
+    if(d === 'reset'){
+      setViewBox(initial.x, initial.y, initial.w, initial.h); return;
+    }
+    const factor = (typeof d === 'number') ? d : 1.2;
+    // center on container center
+    const rect = container.getBoundingClientRect();
+    const cx = rect.left + rect.width/2;
+    const cy = rect.top + rect.height/2;
+    const svgP = clientToSvgPoint(cx, cy);
+    const curScale = initial.w / vb.w;
+    const newScale = clampScale(curScale * factor);
+    const newW = initial.w / newScale;
+    const newH = initial.h / newScale;
+    const newX = svgP.x - (svgP.x - vb.x) * (newW / vb.w);
+    const newY = svgP.y - (svgP.y - vb.y) * (newH / vb.h);
+    setViewBox(newX, newY, newW, newH);
+  });
+
+  // wheel zoom centered on cursor
+  container.addEventListener('wheel', (ev)=>{
+    ev.preventDefault();
+    const rect = container.getBoundingClientRect();
+    const clientX = ev.clientX; const clientY = ev.clientY;
+    const svgP = clientToSvgPoint(clientX, clientY);
+    const delta = ev.deltaY > 0 ? 1/1.12 : 1.12;
+    const curScale = initial.w / vb.w;
+    const newScale = clampScale(curScale * delta);
+    const newW = initial.w / newScale;
+    const newH = initial.h / newScale;
+    const newX = svgP.x - (svgP.x - vb.x) * (newW / vb.w);
+    const newY = svgP.y - (svgP.y - vb.y) * (newH / vb.h);
+    setViewBox(newX, newY, newW, newH);
+  }, { passive: false });
+
+  // panning via pointer drag (left-button) or middle/right
+  let isPanning = false; let panStart = null; let startVb = null;
+  container.addEventListener('pointerdown', (ev)=>{
+    const clickedOnSvg = (ev.target instanceof Element) && (ev.target.closest && ev.target.closest('svg'));
+    if(ev.pointerType === 'mouse'){
+      const isLeft = ev.button === 0;
+      const isMiddleOrRight = ev.button === 1 || ev.button === 2;
+      if(!(isMiddleOrRight || (isLeft && clickedOnSvg))) return;
+    }
+    isPanning = true;
+    panStart = clientToSvgPoint(ev.clientX, ev.clientY);
+    startVb = { ...vb };
+    try{ container.setPointerCapture(ev.pointerId); }catch(e){}
+  });
+  container.addEventListener('pointermove', (ev)=>{
+    if(!isPanning) return;
+    const cur = clientToSvgPoint(ev.clientX, ev.clientY);
+    const dx = cur.x - panStart.x; const dy = cur.y - panStart.y;
+    setViewBox(startVb.x - dx, startVb.y - dy, startVb.w, startVb.h);
+  });
+  container.addEventListener('pointerup', (ev)=>{ if(isPanning){ isPanning=false; try{ container.releasePointerCapture(ev.pointerId); }catch(e){} }});
+  container.addEventListener('pointercancel', ()=>{ isPanning = false; });
+
+  // touch pinch handling
+  let ongoingTouches = [];
+  function getDistance(t1,t2){ const dx = t2.clientX - t1.clientX; const dy = t2.clientY - t1.clientY; return Math.hypot(dx,dy); }
+  container.addEventListener('touchstart', (ev)=>{
+    if(ev.touches.length === 2){ ongoingTouches = [ev.touches[0], ev.touches[1]]; }
+  }, { passive: false });
+  container.addEventListener('touchmove', (ev)=>{
+    if(ev.touches.length === 2 && ongoingTouches.length === 2){
+      ev.preventDefault();
+      const t1 = ev.touches[0], t2 = ev.touches[1];
+      const prevDist = getDistance(ongoingTouches[0], ongoingTouches[1]);
+      const newDist = getDistance(t1,t2);
+      const factor = newDist / prevDist;
+      const rect = container.getBoundingClientRect();
+      const cx = (t1.clientX + t2.clientX)/2; const cy = (t1.clientY + t2.clientY)/2;
+      const svgP = clientToSvgPoint(cx, cy);
+      const curScale = initial.w / vb.w;
+      const newScale = clampScale(curScale * factor);
+      const newW = initial.w / newScale; const newH = initial.h / newScale;
+      const newX = svgP.x - (svgP.x - vb.x) * (newW / vb.w);
+      const newY = svgP.y - (svgP.y - vb.y) * (newH / vb.h);
+      setViewBox(newX, newY, newW, newH);
+      ongoingTouches = [t1, t2];
+    }
+  }, { passive: false });
+  container.addEventListener('touchend', (ev)=>{ ongoingTouches = []; });
+  container.addEventListener('touchcancel', (ev)=>{ ongoingTouches = []; });
+
+  // reset on double click
+  container.addEventListener('dblclick', (ev)=>{ setViewBox(initial.x, initial.y, initial.w, initial.h); });
 }
 
 window.addEventListener('DOMContentLoaded', init);
@@ -203,6 +326,57 @@ function setupToolbar(){
     const res = await fetch('/api/mapping', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mapping) });
     if(res.ok) flashNotification('Mapeo guardado'); else flashNotification('Error al guardar');
   });
+  const autoBtn = document.getElementById('auto-mapping');
+  autoBtn && autoBtn.addEventListener('click', async ()=>{
+    flashNotification('Intentando auto-mapeo...');
+    try{
+      const ds = await loadData();
+      // merge all datasource lines into one array
+      const municipalities = Object.values(ds).flat();
+      await autoMap(svg, municipalities);
+      flashNotification('Auto-mapeo completado');
+    }catch(e){
+      console.error(e);
+      flashNotification('Auto-mapeo fallido');
+    }
+  });
+}
+
+async function autoMap(svg, municipalities){
+  // simple exact-normalized matching across shapes and groups
+  const nodes = Array.from(svg.querySelectorAll('g, path, polygon, rect, circle, ellipse'));
+  const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0000-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+  const used = new Set();
+  window.__SVG_MAPPING = window.__SVG_MAPPING || {};
+  const attrMap = nodes.map((el, idx) => {
+    const attrs = [];
+    if(el.id) attrs.push(el.id);
+    const dn = el.getAttribute('data-name'); if(dn) attrs.push(dn);
+    const titleEl = el.querySelector && el.querySelector('title'); if(titleEl) attrs.push(titleEl.textContent||'');
+    return { idx, el, attrs: attrs.map(a=>norm(a)).filter(Boolean) };
+  });
+
+  for(const name of municipalities){
+    const n = norm(name);
+    if(!n) continue;
+    let found = attrMap.find(a=> a.attrs.includes(n) && !used.has(a.idx));
+    if(!found){
+      found = attrMap.find(a=> a.attrs.some(v=> v.includes(n)) && !used.has(a.idx));
+    }
+    if(found){
+      window.__SVG_MAPPING[found.idx] = name;
+      found.el.setAttribute('data-name', name);
+      found.el.classList.add('mapped');
+      used.add(found.idx);
+      // if it's a group, propagate to children
+      if(found.el.tagName && found.el.tagName.toLowerCase() === 'g'){
+        Array.from(found.el.querySelectorAll('path, polygon, rect, circle, ellipse')).forEach(child=>{
+          child.setAttribute('data-name', name);
+          child.classList.add('mapped');
+        });
+      }
+    }
+  }
 }
 
 // small helper to send a custom event to zoom handlers
@@ -211,114 +385,4 @@ function dispatchZoom(action){
   window.dispatchEvent(ev);
 }
 
-function setupZoomPan(container, svg){
-  // Use CSS transforms on the SVG element for simple zoom/pan behavior
-  let scale = 1;
-  const minScale = 0.5, maxScale = 4;
-  let panX = 0, panY = 0;
-  let isPanning = false; let panStart = null; let panLast = {x:0,y:0};
 
-  svg.style.transformOrigin = '0 0';
-  svg.style.willChange = 'transform';
-
-  function applyTransform(){
-    svg.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-  }
-
-  function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
-
-  // respond to global zoom requests
-  window.addEventListener('app-zoom', (e)=>{
-    const d = e.detail;
-    if(d === 'reset'){
-      scale = 1; panX = 0; panY = 0; applyTransform(); return;
-    }
-    const factor = (typeof d === 'number') ? d : 1.2;
-    // zoom towards center of container
-    const rect = container.getBoundingClientRect();
-    const cx = rect.width/2;
-    const cy = rect.height/2;
-    const newScale = clamp(scale * factor, minScale, maxScale);
-    // adjust pan so center stays put
-    panX = (panX - cx) * (newScale/scale) + cx;
-    panY = (panY - cy) * (newScale/scale) + cy;
-    scale = newScale;
-    applyTransform();
-  });
-
-  // wheel zoom centered on cursor
-  container.addEventListener('wheel', (ev)=>{
-    ev.preventDefault();
-    const rect = container.getBoundingClientRect();
-    const cx = ev.clientX - rect.left;
-    const cy = ev.clientY - rect.top;
-    const delta = ev.deltaY > 0 ? 1/1.12 : 1.12;
-    const newScale = clamp(scale * delta, minScale, maxScale);
-    panX = (panX - cx) * (newScale/scale) + cx;
-    panY = (panY - cy) * (newScale/scale) + cy;
-    scale = newScale;
-    applyTransform();
-  }, { passive: false });
-
-  // mouse panning: middle/right button OR left-button when clicking the SVG/map area
-  container.addEventListener('pointerdown', (ev)=>{
-    // determine if the pointerdown happened on the SVG (or its descendants)
-    const clickedOnSvg = (ev.target instanceof Element) && (ev.target.closest && ev.target.closest('svg'));
-    // allow middle(1)/right(2) always; allow left(0) only when clicking on the svg area
-    if(ev.pointerType === 'mouse'){
-      const isLeft = ev.button === 0;
-      const isMiddleOrRight = ev.button === 1 || ev.button === 2;
-      if(!(isMiddleOrRight || (isLeft && clickedOnSvg))) return;
-    }
-    isPanning = true;
-    panStart = { x: ev.clientX, y: ev.clientY };
-    panLast = { x: panX, y: panY };
-    try{ container.setPointerCapture(ev.pointerId); }catch(e){}
-  });
-  container.addEventListener('pointermove', (ev)=>{
-    if(!isPanning) return;
-    const dx = ev.clientX - panStart.x;
-    const dy = ev.clientY - panStart.y;
-    panX = panLast.x + dx;
-    panY = panLast.y + dy;
-    applyTransform();
-  });
-  container.addEventListener('pointerup', (ev)=>{
-    if(isPanning){ isPanning = false; container.releasePointerCapture(ev.pointerId); }
-  });
-  container.addEventListener('pointercancel', ()=>{ isPanning = false; });
-
-  // touch pinch handling
-  let ongoingTouches = [];
-  function getDistance(t1,t2){ const dx = t2.clientX - t1.clientX; const dy = t2.clientY - t1.clientY; return Math.hypot(dx,dy); }
-  container.addEventListener('touchstart', (ev)=>{
-    if(ev.touches.length === 2){
-      ongoingTouches = [ev.touches[0], ev.touches[1]];
-    }
-  }, { passive: false });
-  container.addEventListener('touchmove', (ev)=>{
-    if(ev.touches.length === 2 && ongoingTouches.length === 2){
-      ev.preventDefault();
-      const t1 = ev.touches[0], t2 = ev.touches[1];
-      const prevDist = getDistance(ongoingTouches[0], ongoingTouches[1]);
-      const newDist = getDistance(t1,t2);
-      const factor = newDist / prevDist;
-      const rect = container.getBoundingClientRect();
-      const cx = (t1.clientX + t2.clientX)/2 - rect.left;
-      const cy = (t1.clientY + t2.clientY)/2 - rect.top;
-      const newScale = clamp(scale * factor, minScale, maxScale);
-      panX = (panX - cx) * (newScale/scale) + cx;
-      panY = (panY - cy) * (newScale/scale) + cy;
-      scale = newScale;
-      applyTransform();
-      ongoingTouches = [t1, t2];
-    }
-  }, { passive: false });
-  container.addEventListener('touchend', (ev)=>{ ongoingTouches = []; });
-  container.addEventListener('touchcancel', (ev)=>{ ongoingTouches = []; });
-
-  // reset on double click
-  container.addEventListener('dblclick', (ev)=>{
-    scale = 1; panX = 0; panY = 0; applyTransform();
-  });
-}
