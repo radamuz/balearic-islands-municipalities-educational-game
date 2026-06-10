@@ -42,7 +42,8 @@ function setupSvgDropTargets(svg){
   // find all elements that can be drop targets (have id or data-name)
   const candidates = svg.querySelectorAll('*');
   candidates.forEach(el=>{
-    const nameAttr = el.id || el.getAttribute('data-name') || el.getAttribute('name') || el.getAttribute('inkscape:label');
+    // check data-name first (from saved mapping), then id/name/inkscape label
+    const nameAttr = el.getAttribute('data-name') || el.id || el.getAttribute('name') || el.getAttribute('inkscape:label');
     if(!nameAttr) return;
     // make it visually pointer
     el.classList.add('svg-drop-target');
@@ -57,6 +58,40 @@ function setupSvgDropTargets(svg){
       if(ok){
         // mark as matched
         el.classList.add('matched');
+        // add a text label centered on the shape (if not already added)
+        try{
+          const svgRoot = (el.ownerSVGElement) ? el.ownerSVGElement : el.closest('svg');
+          if(svgRoot && !el.getAttribute('data-labeled')){
+            const bbox = el.getBBox();
+            const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+            text.setAttribute('x', (bbox.x + bbox.width/2));
+            text.setAttribute('y', (bbox.y + bbox.height/2));
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('dominant-baseline', 'middle');
+            text.classList.add('svg-label');
+            text.textContent = placedName;
+            svgRoot.appendChild(text);
+            el.setAttribute('data-labeled', 'true');
+          }
+        }catch(e){
+          // ignore if getBBox or SVG DOM isn't available
+          console.warn('Could not place label on SVG element', e);
+        }
+        // style the matched element via inline styles to ensure visibility
+        try{
+          const applyStyle = (node)=>{
+            if(!(node instanceof Element)) return;
+            node.style.fill = '#6fcd8a';
+            node.style.stroke = '#006400';
+            node.style.strokeWidth = (node.style.strokeWidth || 1) + 'px';
+            node.style.transition = 'fill 200ms ease, stroke 200ms ease';
+          };
+          if(el.tagName && el.tagName.toLowerCase() === 'g'){
+            // apply to child shapes
+            Array.from(el.querySelectorAll('path, polygon, rect, circle, ellipse')).forEach(applyStyle);
+          }
+          applyStyle(el);
+        }catch(e){}
         // find the draggable item and mark placed
         const lists = document.querySelectorAll('.item');
         for(const it of lists){
@@ -73,6 +108,24 @@ function setupSvgDropTargets(svg){
         el.classList.add('incorrect');
         setTimeout(()=>el.classList.remove('incorrect'), 600);
         flashNotification('Incorrecto');
+      }
+    });
+
+    // mapping-mode click handler: if mapping active, clicking assigns a name
+    el.addEventListener('click', (ev)=>{
+      const container = document.getElementById('map-container');
+      if(!container.classList.contains('mapping-mode')) return;
+      ev.stopPropagation(); ev.preventDefault();
+      const idx = el.getAttribute('data-shape-index');
+      const current = (window.__SVG_MAPPING && window.__SVG_MAPPING[idx]) || el.getAttribute('data-name') || '';
+      const answer = window.prompt('Asignar municipio a esta área (index '+idx+')', current || '');
+      if(answer !== null){
+        // store mapping
+        window.__SVG_MAPPING = window.__SVG_MAPPING || {};
+        window.__SVG_MAPPING[idx] = answer.trim();
+        el.setAttribute('data-name', answer.trim());
+        el.classList.add('mapped');
+        flashNotification('Asignado: '+answer.trim());
       }
     });
   });
@@ -97,10 +150,23 @@ async function init(){
     return;
   }
 
-  // if SVG paths don't have ids matching names, user can add data-name attributes to shapes.
+  // assign stable indexes to candidate shapes and load mapping
+  const candidates = svg.querySelectorAll('path, polygon, rect, circle, ellipse, g');
+  const mappingResp = await fetch('/api/mapping');
+  const savedMapping = await mappingResp.json();
+  candidates.forEach((el, idx)=>{
+    el.setAttribute('data-shape-index', String(idx));
+    if(savedMapping && savedMapping[String(idx)]){
+      el.setAttribute('data-name', savedMapping[String(idx)]);
+      el.classList.add('mapped');
+    }
+  });
+
   setupSvgDropTargets(svg);
   setupZoomPan(mapContainer, svg);
   setupToolbar();
+  // expose mapping state
+  window.__SVG_MAPPING = savedMapping || {};
 }
 
 window.addEventListener('DOMContentLoaded', init);
@@ -116,6 +182,26 @@ function setupToolbar(){
   toggleMobile && toggleMobile.addEventListener('click', ()=>{
     const lists = document.getElementById('lists');
     lists.style.display = (lists.style.display === 'none') ? '' : 'none';
+  });
+  const editBtn = document.getElementById('edit-mapping');
+  const saveBtn = document.getElementById('save-mapping');
+  let mappingMode = false;
+  editBtn && editBtn.addEventListener('click', ()=>{
+    mappingMode = !mappingMode;
+    editBtn.textContent = mappingMode ? '🗺️ Mapeo (ON)' : '🗺️ Mapeo';
+    document.getElementById('map-container').classList.toggle('mapping-mode', mappingMode);
+    // when entering mapping mode, highlight candidates
+    const svg = document.querySelector('#map-container svg');
+    if(svg){
+      svg.querySelectorAll('[data-shape-index]').forEach(el=>{
+        el.classList.toggle('mapping-highlight', mappingMode);
+      });
+    }
+  });
+  saveBtn && saveBtn.addEventListener('click', async ()=>{
+    const mapping = window.__SVG_MAPPING || {};
+    const res = await fetch('/api/mapping', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mapping) });
+    if(res.ok) flashNotification('Mapeo guardado'); else flashNotification('Error al guardar');
   });
 }
 

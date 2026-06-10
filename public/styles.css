@@ -18,6 +18,10 @@ aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px
 #map-toolbar{display:flex; gap:8px; margin-bottom:6px}
 #map-toolbar button{padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer}
 
+.mapping-mode svg [data-shape-index]{outline:2px dashed rgba(0,0,0,0.08)}
+.mapping-highlight{filter: drop-shadow(0 0 6px rgba(0,0,0,0.12)); opacity:0.9}
+.mapped{opacity:0.95}
+
 #score{padding:8px}
 .svg-drop-target.matched{stroke:#006400 !important; fill:#6fcd8a !important}
 .svg-drop-target.incorrect{animation:shake 0.4s}
@@ -36,4 +40,15 @@ aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px
   aside#lists{max-height:26vh; padding:6px}
   .item{padding:8px}
   #map-container{min-height:420px}
+}
+
+/* Labels shown on matched SVG shapes */
+#map-container svg .svg-label{
+  fill: #003300;
+  font-size: 12px;
+  font-weight: 600;
+  stroke: #ffffff;
+  stroke-width: 0.6;
+  paint-order: stroke;
+  pointer-events: none;
 }
