@@ -101,32 +101,27 @@ function setupSvgDropTargets(svg){
       }
     });
   });
+}
 
-  // mapping-mode click handler: attach to indexed shapes so user can assign names
-  const mappingTargets = svg.querySelectorAll('[data-shape-index]');
-  mappingTargets.forEach(el => {
-    el.addEventListener('click', async (ev)=>{
-      const container = document.getElementById('map-container');
-      if(!container.classList.contains('mapping-mode')) return;
-      ev.stopPropagation(); ev.preventDefault();
-      const idx = el.getAttribute('data-shape-index');
-      const current = (window.__SVG_MAPPING && window.__SVG_MAPPING[idx]) || el.getAttribute('data-name') || '';
-      const answer = await openMappingModal(current);
-      if(answer === null) return; // cancelled
-      window.__SVG_MAPPING = window.__SVG_MAPPING || {};
-      if(answer === ''){
-        delete window.__SVG_MAPPING[idx];
-        el.removeAttribute('data-name');
-        el.classList.remove('mapped');
-        flashNotification('Asignación eliminada');
-        return;
-      }
-      window.__SVG_MAPPING[idx] = answer;
-      el.setAttribute('data-name', answer);
-      el.classList.add('mapped');
-      flashNotification('Asignado: '+answer);
-    });
-  });
+// Open the mapping modal for a single shape and apply the chosen assignment.
+// Called from the pointer-handling code in setupZoomPan when in mapping mode.
+async function assignShapeMapping(el){
+  const idx = el.getAttribute('data-shape-index');
+  const current = (window.__SVG_MAPPING && window.__SVG_MAPPING[idx]) || el.getAttribute('data-name') || '';
+  const answer = await openMappingModal(current);
+  if(answer === null) return; // cancelled
+  window.__SVG_MAPPING = window.__SVG_MAPPING || {};
+  if(answer === ''){
+    delete window.__SVG_MAPPING[idx];
+    el.removeAttribute('data-name');
+    el.classList.remove('mapped');
+    flashNotification('Asignación eliminada');
+    return;
+  }
+  window.__SVG_MAPPING[idx] = answer;
+  el.setAttribute('data-name', answer);
+  el.classList.add('mapped');
+  flashNotification('Asignado: '+answer);
 }
 
 // Populate and show the mapping modal, resolving with the chosen name,
@@ -278,7 +273,7 @@ function setupZoomPan(container, svg){
   }, { passive: false });
 
   // panning via pointer drag (left-button) or middle/right
-  let isPanning = false; let panStart = null; let startVb = null;
+  let isPanning = false; let panStart = null; let startVb = null; let downPoint = null;
   container.addEventListener('pointerdown', (ev)=>{
     const clickedOnSvg = (ev.target instanceof Element) && (ev.target.closest && ev.target.closest('svg'));
     if(ev.pointerType === 'mouse'){
@@ -289,6 +284,7 @@ function setupZoomPan(container, svg){
     isPanning = true;
     panStart = clientToSvgPoint(ev.clientX, ev.clientY);
     startVb = { ...vb };
+    downPoint = { x: ev.clientX, y: ev.clientY };
     try{ container.setPointerCapture(ev.pointerId); }catch(e){}
   });
   container.addEventListener('pointermove', (ev)=>{
@@ -297,7 +293,20 @@ function setupZoomPan(container, svg){
     const dx = cur.x - panStart.x; const dy = cur.y - panStart.y;
     setViewBox(startVb.x - dx, startVb.y - dy, startVb.w, startVb.h);
   });
-  container.addEventListener('pointerup', (ev)=>{ if(isPanning){ isPanning=false; try{ container.releasePointerCapture(ev.pointerId); }catch(e){} }});
+  container.addEventListener('pointerup', (ev)=>{
+    if(!isPanning) return;
+    isPanning = false;
+    try{ container.releasePointerCapture(ev.pointerId); }catch(e){}
+    // pointer capture re-targets pointer events to the container, so a plain
+    // 'click' on the SVG shape underneath never fires. Detect a tap (no
+    // meaningful movement) here and resolve the shape under the pointer.
+    const moved = Math.hypot(ev.clientX - downPoint.x, ev.clientY - downPoint.y);
+    if(moved < 4 && container.classList.contains('mapping-mode')){
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const shapeEl = target && target.closest && target.closest('[data-shape-index]');
+      if(shapeEl) assignShapeMapping(shapeEl);
+    }
+  });
   container.addEventListener('pointercancel', ()=>{ isPanning = false; });
 
   // touch pinch handling
