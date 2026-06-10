@@ -174,14 +174,20 @@ function setupZoomPan(container, svg){
     applyTransform();
   }, { passive: false });
 
-  // mouse panning: middle or right button OR touch drag
+  // mouse panning: middle/right button OR left-button when clicking the SVG/map area
   container.addEventListener('pointerdown', (ev)=>{
-    // allow left-button drag to be used by native drag/drop; use middle (1) or right (2) or touch
-    if(ev.pointerType === 'mouse' && ev.button !== 1 && ev.button !== 2) return;
+    // determine if the pointerdown happened on the SVG (or its descendants)
+    const clickedOnSvg = (ev.target instanceof Element) && (ev.target.closest && ev.target.closest('svg'));
+    // allow middle(1)/right(2) always; allow left(0) only when clicking on the svg area
+    if(ev.pointerType === 'mouse'){
+      const isLeft = ev.button === 0;
+      const isMiddleOrRight = ev.button === 1 || ev.button === 2;
+      if(!(isMiddleOrRight || (isLeft && clickedOnSvg))) return;
+    }
     isPanning = true;
     panStart = { x: ev.clientX, y: ev.clientY };
     panLast = { x: panX, y: panY };
-    container.setPointerCapture(ev.pointerId);
+    try{ container.setPointerCapture(ev.pointerId); }catch(e){}
   });
   container.addEventListener('pointermove', (ev)=>{
     if(!isPanning) return;
