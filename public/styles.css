@@ -24,6 +24,7 @@ aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px
 
 #score{padding:8px}
 .svg-drop-target.matched{stroke:#006400 !important; fill:#6fcd8a !important}
+.svg-drop-target.matched.island-outline{fill:#BEE8FF !important; stroke:#006400 !important; stroke-width:1px !important}
 .svg-drop-target.incorrect{animation:shake 0.4s}
 .notification{position:fixed; right:16px; bottom:16px; padding:10px 14px; background:#222; color:#fff; border-radius:8px; opacity:0.95}
 @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-4px)}100%{transform:translateX(0)}}
@@ -59,5 +60,13 @@ aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px
   stroke: #ffffff;
   stroke-width: 0.6;
   paint-order: stroke;
+  pointer-events: none;
+}
+
+/* Leader lines connecting solution labels to their shapes */
+#map-container svg .leader-line{
+  stroke: #888;
+  stroke-width: 0.6;
+  fill: none;
   pointer-events: none;
 }

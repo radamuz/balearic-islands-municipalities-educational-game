@@ -6,19 +6,27 @@ function normalizeKey(s){
   return t.replace(/[^a-z0-9]/g, '');
 }
 
-// Mallorca and Menorca have no single shape of their own in the SVG: their
-// territory is split across their municipalities. Dropping the island name
-// onto any of its municipalities counts as correct.
+// Each "isla" item maps to the set of municipalities that make up its
+// territory in the SVG. Dropping the island name onto any of those
+// municipalities counts as correct. "Eivissa" and "Formentera" are also the
+// names of one of their own municipalities, so they need a group too -
+// otherwise dropping the island "Eivissa" would only ever match the single
+// "Eivissa" municipality shape instead of highlighting the whole island.
 const ISLAND_GROUPS = {
   'Mallorca': ["Alaró","Alcúdia","Algaida","Andratx","Ariany","Artà","Banyalbufar","Binissalem","Búger","Bunyola","Calvià","Campanet","Campos","Capdepera","Consell","Costitx","Deià","Escorca","Esporles","Estellencs","Felanitx","Fornalutx","Inca","Lloret de Vistalegre","Lloseta","Llubí","Llucmajor","Manacor","Mancor de la Vall","Maria de la Salut","Marratxí","Montuïri","Muro","Palma","Petra","Pollença","Porreres","Sa Pobla","Puigpunyent","Ses Salines","Sant Joan","Sant Llorenç des Cardassar","Sencelles","Santa Eugènia","Santa Margalida","Santa Maria del Camí","Santanyí","Selva","Sineu","Sóller","Son Servera","Valldemossa","Vilafranca de Bonany"],
-  'Menorca': ["Maó","Ciutadella de Menorca","Alaior","Es Castell","Es Mercadal","Es Migjorn Gran","Ferreries","Sant Lluís"]
+  'Menorca': ["Maó","Ciutadella de Menorca","Alaior","Es Castell","Es Mercadal","Es Migjorn Gran","Ferreries","Sant Lluís"],
+  'Eivissa': ["Eivissa","Sant Antoni de Portmany","Sant Josep de sa Talaia","Sant Joan de Labritja","Santa Eulària des Riu"],
+  'Formentera': ["Formentera"]
 };
 
-function isMatch(placedName, targetName){
-  if(normalizeKey(placedName) === normalizeKey(targetName)) return true;
-  const group = ISLAND_GROUPS[placedName];
+// `kind` distinguishes the "isla" item (e.g. the "Eivissa" entry from
+// illes-pitiüses.txt) from the "municipi" item with the same name (the
+// "Eivissa" entry from municipis-de-les-illes-balears.txt). Only "isla"
+// drops use the island-wide group matching above.
+function isMatch(placedName, targetName, kind){
+  const group = (kind === 'isla') ? ISLAND_GROUPS[placedName] : null;
   if(group) return group.some(m => normalizeKey(m) === normalizeKey(targetName));
-  return false;
+  return normalizeKey(placedName) === normalizeKey(targetName);
 }
 
 async function loadData(){
@@ -31,18 +39,161 @@ function createListSection(title, items){
   const node = tpl.content.cloneNode(true);
   node.querySelector('.source-title').textContent = title.replace('.txt','');
   const ul = node.querySelector('.items');
+  // items from the islands lists are "isla" entries; everything else is a "municipi"
+  const kind = (title === 'illes-gimnèsies.txt' || title === 'illes-pitiüses.txt') ? 'isla' : 'municipi';
   items.forEach(it => {
     const li = document.createElement('li');
     li.className = 'item';
     li.textContent = it;
     li.draggable = true;
     li.dataset.name = it;
+    li.dataset.kind = kind;
     li.addEventListener('dragstart', (e)=>{
-      e.dataTransfer.setData('text/plain', it);
+      e.dataTransfer.setData('text/plain', JSON.stringify({ name: it, kind }));
     });
     ul.appendChild(li);
   });
   return node;
+}
+
+// Create and append a text label to the SVG at the given position.
+function addSvgLabel(svgRoot, x, y, text, anchor, fontSize){
+  const el = document.createElementNS('http://www.w3.org/2000/svg','text');
+  el.setAttribute('x', x);
+  el.setAttribute('y', y);
+  el.setAttribute('text-anchor', anchor || 'middle');
+  el.setAttribute('dominant-baseline', 'middle');
+  el.classList.add('svg-label');
+  // inline style beats the stylesheet's font-size so callers can scale labels
+  if(fontSize) el.style.fontSize = fontSize + 'px';
+  el.textContent = text;
+  svgRoot.appendChild(el);
+  return el;
+}
+
+// Make sure the SVG has an arrowhead marker definition for leader lines.
+function ensureArrowMarker(svg){
+  if(svg.querySelector('#leader-arrow')) return;
+  let defs = svg.querySelector('defs');
+  if(!defs){
+    defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+    svg.insertBefore(defs, svg.firstChild);
+  }
+  const marker = document.createElementNS('http://www.w3.org/2000/svg','marker');
+  marker.setAttribute('id', 'leader-arrow');
+  marker.setAttribute('markerWidth', '6');
+  marker.setAttribute('markerHeight', '6');
+  marker.setAttribute('refX', '5');
+  marker.setAttribute('refY', '3');
+  marker.setAttribute('orient', 'auto');
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', 'M0,0 L6,3 L0,6 Z');
+  path.setAttribute('fill', '#555');
+  marker.appendChild(path);
+  defs.appendChild(marker);
+}
+
+// Map-style label layout. Each point is {name, cx, cy, w, h, isTitle}.
+// Labels are grouped by island. A label that fits inside its own shape is
+// drawn centered there with no leader line; labels that don't fit are pushed
+// out to the left/right edge of their island, stacked without overlap and
+// connected with a short arrow. Island titles go above the island. The SVG
+// viewBox is expanded to fit everything.
+function placeLabelsAround(svg, points){
+  if(points.length === 0) return;
+  ensureArrowMarker(svg);
+
+  const NORMAL = 9;   // font size (viewBox units) for municipality labels
+  const TITLE = 15;   // font size for island titles
+  const CHAR_W = 0.55; // approx glyph width as a fraction of font size
+
+  const vb0 = svg.viewBox.baseVal;
+  let exMinX = vb0.x, exMinY = vb0.y, exMaxX = vb0.x + vb0.width, exMaxY = vb0.y + vb0.height;
+  const include = (x, y)=>{
+    exMinX = Math.min(exMinX, x); exMinY = Math.min(exMinY, y);
+    exMaxX = Math.max(exMaxX, x); exMaxY = Math.max(exMaxY, y);
+  };
+  const labelWidth = (name, size)=> name.length * CHAR_W * size;
+
+  // group points by the island their shape belongs to (small islets each get
+  // their own singleton group keyed by name)
+  function islandOf(name){
+    const k = normalizeKey(name);
+    for(const isl in ISLAND_GROUPS){
+      if(normalizeKey(isl) === k) return isl;
+      if(ISLAND_GROUPS[isl].some(m=> normalizeKey(m) === k)) return isl;
+    }
+    return '__' + k;
+  }
+  const groups = {};
+  points.forEach(p=>{ const g = islandOf(p.name); (groups[g] = groups[g] || []).push(p); });
+
+  Object.values(groups).forEach(list=>{
+    // island extent from its member shapes
+    let minx=Infinity, miny=Infinity, maxx=-Infinity, maxy=-Infinity;
+    list.forEach(p=>{
+      minx = Math.min(minx, p.cx - p.w/2); maxx = Math.max(maxx, p.cx + p.w/2);
+      miny = Math.min(miny, p.cy - p.h/2); maxy = Math.max(maxy, p.cy + p.h/2);
+    });
+    const cX = (minx + maxx)/2;
+
+    const inside = [], titles = [], sides = [];
+    list.forEach(p=>{
+      if(p.isTitle){ titles.push(p); return; }
+      const fits = labelWidth(p.name, NORMAL) <= p.w * 0.95 && NORMAL <= p.h * 0.95;
+      (fits ? inside : sides).push(p);
+    });
+
+    // labels that fit: centered inside the shape, no leader line
+    inside.forEach(p=>{
+      addSvgLabel(svg, p.cx, p.cy, p.name, 'middle', NORMAL);
+      const hw = labelWidth(p.name, NORMAL)/2;
+      include(p.cx - hw, p.cy); include(p.cx + hw, p.cy);
+    });
+
+    // labels that don't fit: out to the nearest side, decluttered vertically
+    const gap = NORMAL * 1.3;
+    const leftList  = sides.filter(p=> p.cx <  cX).sort((a,b)=> a.cy - b.cy);
+    const rightList = sides.filter(p=> p.cx >= cX).sort((a,b)=> a.cy - b.cy);
+
+    function layoutSide(arr, laneX, anchor){
+      if(arr.length === 0) return;
+      // push down to remove overlaps, then recenter the column on the island
+      let prev = -Infinity;
+      arr.forEach(p=>{ let y = p.cy; if(y < prev + gap) y = prev + gap; prev = y; p._y = y; });
+      const curMid = (arr[0]._y + arr[arr.length-1]._y)/2;
+      const shift = (miny + maxy)/2 - curMid;
+      arr.forEach(p=> p._y += shift);
+
+      arr.forEach(p=>{
+        addSvgLabel(svg, laneX, p._y, p.name, anchor, NORMAL);
+        const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+        line.setAttribute('x1', p.cx); line.setAttribute('y1', p.cy);
+        line.setAttribute('x2', laneX + (anchor === 'end' ? 3 : -3));
+        line.setAttribute('y2', p._y);
+        line.classList.add('leader-line');
+        line.setAttribute('marker-end', 'url(#leader-arrow)');
+        svg.appendChild(line);
+        const tw = labelWidth(p.name, NORMAL);
+        if(anchor === 'end') include(laneX - tw, p._y); else include(laneX + tw, p._y);
+      });
+    }
+    layoutSide(leftList,  minx - 8, 'end');
+    layoutSide(rightList, maxx + 8, 'start');
+
+    // island title above the island
+    titles.forEach(p=>{
+      const ty = miny - TITLE;
+      addSvgLabel(svg, cX, ty, p.name, 'middle', TITLE);
+      include(cX, ty - TITLE);
+    });
+  });
+
+  const m = 6;
+  const newX = exMinX - m, newY = exMinY - m;
+  const newW = (exMaxX - exMinX) + 2*m, newH = (exMaxY - exMinY) + 2*m;
+  if(window.__updateViewBox) window.__updateViewBox(newX, newY, newW, newH);
+  else svg.setAttribute('viewBox', `${newX} ${newY} ${newW} ${newH}`);
 }
 
 function flashNotification(text){
@@ -64,43 +215,72 @@ function setupSvgDropTargets(svg){
     el.addEventListener('dragover', (e)=>{ e.preventDefault(); });
     el.addEventListener('drop', (e)=>{
       e.preventDefault();
-      const dragged = e.dataTransfer.getData('text/plain');
-      const placedName = dragged;
+      let placedName, kind;
+      try{
+        const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        placedName = data.name; kind = data.kind;
+      }catch(err){
+        placedName = e.dataTransfer.getData('text/plain'); kind = null;
+      }
       const targetName = el.getAttribute('data-name') || nameAttr;
-      const ok = isMatch(placedName, targetName);
+      const ok = isMatch(placedName, targetName, kind);
       if(ok){
-        // mark as matched
-        el.classList.add('matched');
-        // add a text label centered on the shape (if not already added)
-        try{
-          const svgRoot = (el.ownerSVGElement) ? el.ownerSVGElement : el.closest('svg');
-          if(svgRoot && !el.getAttribute('data-labeled')){
-            const bbox = el.getBBox();
-            const text = document.createElementNS('http://www.w3.org/2000/svg','text');
-            text.setAttribute('x', (bbox.x + bbox.width/2));
-            text.setAttribute('y', (bbox.y + bbox.height/2));
-            text.setAttribute('text-anchor', 'middle');
-            text.setAttribute('dominant-baseline', 'middle');
-            text.classList.add('svg-label');
-            text.textContent = placedName;
-            svgRoot.appendChild(text);
-            el.setAttribute('data-labeled', 'true');
-          }
-        }catch(e){ console.warn('Could not place label on SVG element', e); }
-        // style only the matched element (or its children if it's a group placeholder)
-        try{
-          const applyStyle = (node)=>{
-            if(!(node instanceof Element)) return;
+        // if the dropped item is an island whose territory is split across
+        // several municipalities, highlight the outline of every shape of
+        // that island instead of filling just the one the user dropped on
+        const group = (kind === 'isla') ? ISLAND_GROUPS[placedName] : null;
+        let matchedElements;
+        if(group){
+          const groupKeys = new Set(group.map(normalizeKey));
+          matchedElements = Array.from(svg.querySelectorAll('[data-name]')).filter(node=> groupKeys.has(normalizeKey(node.getAttribute('data-name'))));
+        } else {
+          matchedElements = [el];
+        }
+
+        // style every matched shape
+        matchedElements.forEach(node=>{
+          node.classList.add('matched');
+          if(group){
+            node.classList.add('island-outline');
+          } else {
             node.style.fill = '#6fcd8a';
             node.style.stroke = '#006400';
             node.style.transition = 'fill 200ms ease, stroke 200ms ease';
-          };
-          applyStyle(el);
-        }catch(e){}
+          }
+        });
+
+        // add a single text label for the matched area (if not already added)
+        try{
+          const svgRoot = (el.ownerSVGElement) ? el.ownerSVGElement : el.closest('svg');
+          window.__LABELED_GROUPS = window.__LABELED_GROUPS || new Set();
+          const groupKey = group ? normalizeKey(placedName) : null;
+          const alreadyLabeled = group ? window.__LABELED_GROUPS.has(groupKey) : el.getAttribute('data-labeled');
+          if(svgRoot && !alreadyLabeled){
+            let minx=Infinity, miny=Infinity, maxx=-Infinity, maxy=-Infinity;
+            matchedElements.forEach(node=>{
+              const b = node.getBBox();
+              minx = Math.min(minx, b.x); miny = Math.min(miny, b.y);
+              maxx = Math.max(maxx, b.x + b.width); maxy = Math.max(maxy, b.y + b.height);
+            });
+            const cx = (minx + maxx)/2;
+            let ly = (miny + maxy)/2;
+            if(group){
+              // place the label outside the island's bounding box: above it,
+              // unless that would fall off the top of the map, then below
+              const margin = 4;
+              const vb = svg.viewBox && svg.viewBox.baseVal;
+              const vbMinY = vb ? vb.y : 0;
+              ly = (miny - margin > vbMinY) ? (miny - margin) : (maxy + margin);
+            }
+            addSvgLabel(svgRoot, cx, ly, placedName);
+            if(group) window.__LABELED_GROUPS.add(groupKey);
+            else el.setAttribute('data-labeled', 'true');
+          }
+        }catch(e){ console.warn('Could not place label on SVG element', e); }
         // find the draggable item and mark placed
         const lists = document.querySelectorAll('.item');
         for(const it of lists){
-          if(it.dataset.name === placedName){
+          if(it.dataset.name === placedName && it.dataset.kind === kind){
             it.classList.add('placed');
             it.draggable = false;
             break;
@@ -116,6 +296,54 @@ function setupSvgDropTargets(svg){
       }
     });
   });
+}
+
+// Reveal the full solution: highlight every mapped shape with its name,
+// plus an extra outside label for islands whose territory spans several
+// municipalities (Mallorca, Menorca, Eivissa).
+function showSolution(svg){
+  window.__LABELED_GROUPS = window.__LABELED_GROUPS || new Set();
+  const mappedShapes = Array.from(svg.querySelectorAll('[data-name]'));
+  const points = [];
+
+  mappedShapes.forEach(el=>{
+    el.classList.add('matched');
+    el.style.fill = '#6fcd8a';
+    el.style.stroke = '#006400';
+    el.style.transition = 'fill 200ms ease, stroke 200ms ease';
+    if(!el.getAttribute('data-labeled')){
+      const b = el.getBBox();
+      points.push({ name: el.getAttribute('data-name'), cx: b.x + b.width/2, cy: b.y + b.height/2, w: b.width, h: b.height });
+      el.setAttribute('data-labeled', 'true');
+    }
+  });
+
+  // island-wide titles (Mallorca, Menorca, Eivissa span several shapes)
+  Object.keys(ISLAND_GROUPS).forEach(islandName=>{
+    const groupKey = normalizeKey(islandName);
+    if(window.__LABELED_GROUPS.has(groupKey)) return;
+    const groupKeys = new Set(ISLAND_GROUPS[islandName].map(normalizeKey));
+    const elements = mappedShapes.filter(el=> groupKeys.has(normalizeKey(el.getAttribute('data-name'))));
+    if(elements.length <= 1) return; // single-shape islands already have their own label
+    let minx=Infinity, miny=Infinity, maxx=-Infinity, maxy=-Infinity;
+    elements.forEach(node=>{
+      const b = node.getBBox();
+      minx = Math.min(minx, b.x); miny = Math.min(miny, b.y);
+      maxx = Math.max(maxx, b.x + b.width); maxy = Math.max(maxy, b.y + b.height);
+    });
+    points.push({ name: islandName, cx: (minx + maxx)/2, cy: (miny + maxy)/2, w: maxx - minx, h: maxy - miny, isTitle: true });
+    window.__LABELED_GROUPS.add(groupKey);
+  });
+
+  placeLabelsAround(svg, points);
+
+  document.querySelectorAll('.item').forEach(it=>{
+    it.classList.add('placed');
+    it.draggable = false;
+  });
+  const cur = document.getElementById('correct');
+  cur.textContent = document.querySelectorAll('.item').length;
+  flashNotification('Solución mostrada');
 }
 
 // Open the mapping modal for a single shape and apply the chosen assignment.
@@ -232,12 +460,19 @@ function setupZoomPan(container, svg){
   }
 
   const minScale = 0.2, maxScale = 8; // scale relative to initial
-  const initial = { ...vb };
+  let initial = { ...vb };
 
   function setViewBox(x,y,w,h){
     vb = { x,y,w,h };
     svg.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
   }
+
+  // Allow other code (e.g. the solution overlay) to expand the canvas and
+  // make that the new "reset" viewBox.
+  window.__updateViewBox = function(x,y,w,h){
+    initial = { x, y, w, h };
+    setViewBox(x,y,w,h);
+  };
 
   function clientToSvgPoint(clientX, clientY){
     const pt = svg.createSVGPoint(); pt.x = clientX; pt.y = clientY;
@@ -389,6 +624,14 @@ function setupToolbar(){
     const mapping = window.__SVG_MAPPING || {};
     const res = await fetch('/api/mapping', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(mapping) });
     if(res.ok) flashNotification('Mapeo guardado'); else flashNotification('Error al guardar');
+  });
+
+  const solutionBtn = document.getElementById('show-solution');
+  solutionBtn && solutionBtn.addEventListener('click', ()=>{
+    const svg = document.querySelector('#map-container svg');
+    if(!svg) return;
+    showSolution(svg);
+    solutionBtn.disabled = true;
   });
 }
 
