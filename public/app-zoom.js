@@ -1,9 +1,24 @@
 function normalizeKey(s){
   if(!s) return '';
   // remove accents
-  const t = s.trim().toLowerCase().normalize('NFD').replace(/[\u0000-\u036f]/g, '');
+  const t = s.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   // keep letters and numbers
   return t.replace(/[^a-z0-9]/g, '');
+}
+
+// Mallorca and Menorca have no single shape of their own in the SVG: their
+// territory is split across their municipalities. Dropping the island name
+// onto any of its municipalities counts as correct.
+const ISLAND_GROUPS = {
+  'Mallorca': ["Alaró","Alcúdia","Algaida","Andratx","Ariany","Artà","Banyalbufar","Binissalem","Búger","Bunyola","Calvià","Campanet","Campos","Capdepera","Consell","Costitx","Deià","Escorca","Esporles","Estellencs","Felanitx","Fornalutx","Inca","Lloret de Vistalegre","Lloseta","Llubí","Llucmajor","Manacor","Mancor de la Vall","Maria de la Salut","Marratxí","Montuïri","Muro","Palma","Petra","Pollença","Porreres","Sa Pobla","Puigpunyent","Ses Salines","Sant Joan","Sant Llorenç des Cardassar","Sencelles","Santa Eugènia","Santa Margalida","Santa Maria del Camí","Santanyí","Selva","Sineu","Sóller","Son Servera","Valldemossa","Vilafranca de Bonany"],
+  'Menorca': ["Maó","Ciutadella de Menorca","Alaior","Es Castell","Es Mercadal","Es Migjorn Gran","Ferreries","Sant Lluís"]
+};
+
+function isMatch(placedName, targetName){
+  if(normalizeKey(placedName) === normalizeKey(targetName)) return true;
+  const group = ISLAND_GROUPS[placedName];
+  if(group) return group.some(m => normalizeKey(m) === normalizeKey(targetName));
+  return false;
 }
 
 async function loadData(){
@@ -52,7 +67,7 @@ function setupSvgDropTargets(svg){
       const dragged = e.dataTransfer.getData('text/plain');
       const placedName = dragged;
       const targetName = el.getAttribute('data-name') || nameAttr;
-      const ok = normalizeKey(placedName) === normalizeKey(targetName);
+      const ok = isMatch(placedName, targetName);
       if(ok){
         // mark as matched
         el.classList.add('matched');
