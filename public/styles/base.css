@@ -1,0 +1,26 @@
+:root{
+  --gap: 12px;
+}
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial; margin:0; padding:16px;}
+header{margin-bottom:12px}
+#panels{display:flex;gap:var(--gap)}
+.mobile-only{display:none}
+aside#lists{width:360px; max-height:80vh; overflow:auto; padding:8px; border:1px solid #ddd; border-radius:6px}
+.source{margin-bottom:14px}
+.source-title{font-size:14px; margin:6px 0}
+.items{list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px}
+.item{padding:8px 10px; background:#f7f7f7; border-radius:6px; cursor:grab}
+.item.placed{opacity:0.5; text-decoration:line-through; cursor:default}
+
+/* Responsive adjustments */
+@media (max-width: 900px){
+  #panels{flex-direction:column}
+  aside#lists{width:100%; max-height:28vh; order:2}
+  #map-area{order:1}
+  .mobile-only{display:inline-block}
+}
+
+@media (max-width: 520px){
+  aside#lists{max-height:26vh; padding:6px}
+  .item{padding:8px}
+}
