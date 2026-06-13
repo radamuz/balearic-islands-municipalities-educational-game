@@ -95,72 +95,113 @@ export function setupZoomPan(container, svg, onTap) {
     zoomAround(svgP, ev.deltaY > 0 ? 1 / 1.15 : 1.15);
   }, { passive: false });
 
-  // --- smooth pointer panning -------------------------------------------
-  let isPanning = false, startVb = null, downPoint = null, ctmScale = { a: 1, d: 1 };
+  // --- unified pointer pan + pinch --------------------------------------
+  // Touch screens fire BOTH pointer and touch events for each finger, so the
+  // old design (pointer-pan + touch-pinch) had the two fighting during a
+  // two-finger gesture. Pointer Events support multi-touch natively via
+  // pointerId, so we track every active pointer here and switch between pan
+  // (1 pointer) and pinch (2 pointers) cleanly — no touch handlers needed.
+  const pointers = new Map(); // pointerId -> { x, y }
+  let ctmScale = { a: 1, d: 1 };
+  // single-pointer pan state
+  let panActive = false, panStartVb = null, panDownPoint = null, movedDist = 0, tapStart = null;
+  // two-pointer pinch state
+  let pinchHappened = false, pinchPrevDist = 0, pinchPrevMid = null;
+
+  function refreshCtmScale() {
+    const ctm = svgEl.getScreenCTM();
+    ctmScale = { a: (ctm && ctm.a) || 1, d: (ctm && ctm.d) || 1 };
+  }
+  const activePoints = () => Array.from(pointers.values());
+  const midpoint = (pts) => ({ x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 });
+  const spread = (pts) => Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+
+  function beginPan(x, y) {
+    panActive = true;
+    panStartVb = { ...vb };
+    panDownPoint = { x, y };
+    refreshCtmScale();
+    container.classList.add('panning');
+  }
+
   container.addEventListener('pointerdown', (ev) => {
-    const onSvg = (ev.target instanceof Element) && ev.target.closest && ev.target.closest('svg');
+    // Mouse: only left-on-svg or middle/right initiates a drag.
     if (ev.pointerType === 'mouse') {
+      const onSvg = (ev.target instanceof Element) && ev.target.closest && ev.target.closest('svg');
       const isLeft = ev.button === 0;
       const isMiddleOrRight = ev.button === 1 || ev.button === 2;
       if (!(isMiddleOrRight || (isLeft && onSvg))) return;
     }
-    isPanning = true;
-    startVb = { ...vb };
-    downPoint = { x: ev.clientX, y: ev.clientY };
-    const ctm = svgEl.getScreenCTM();
-    ctmScale = { a: (ctm && ctm.a) || 1, d: (ctm && ctm.d) || 1 };
-    container.classList.add('panning');
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
     try { container.setPointerCapture(ev.pointerId); } catch (e) {}
+
+    if (pointers.size === 1) {
+      pinchHappened = false;
+      movedDist = 0;
+      tapStart = { x: ev.clientX, y: ev.clientY };
+      beginPan(ev.clientX, ev.clientY);
+    } else if (pointers.size === 2) {
+      // Two fingers down: stop panning, start pinch.
+      panActive = false;
+      pinchHappened = true;
+      container.classList.remove('panning');
+      const pts = activePoints();
+      pinchPrevDist = spread(pts);
+      pinchPrevMid = midpoint(pts);
+    }
   });
+
   container.addEventListener('pointermove', (ev) => {
-    if (!isPanning) return;
-    const dx = (ev.clientX - downPoint.x) / ctmScale.a;
-    const dy = (ev.clientY - downPoint.y) / ctmScale.d;
-    setViewBox(startVb.x - dx, startVb.y - dy, startVb.w, startVb.h);
-  });
-  function endPan(ev) {
-    if (!isPanning) return;
-    isPanning = false;
-    container.classList.remove('panning');
-    try { container.releasePointerCapture(ev.pointerId); } catch (e) {}
-    const moved = Math.hypot(ev.clientX - downPoint.x, ev.clientY - downPoint.y);
-    if (moved < 4 && onTap) onTap(ev);
-  }
-  container.addEventListener('pointerup', endPan);
-  container.addEventListener('pointercancel', () => { isPanning = false; container.classList.remove('panning'); });
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
 
-  // --- touch pinch -------------------------------------------------------
-  let pinchStart = null;
-  const dist = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
-
-  container.addEventListener('touchstart', (ev) => {
-    if (ev.touches.length === 2) {
-      pinchStart = {
-        distance: dist(ev.touches[0], ev.touches[1]),
-        touches: [ev.touches[0], ev.touches[1]]
-      };
-    }
-  }, { passive: false });
-
-  container.addEventListener('touchmove', (ev) => {
-    if (ev.touches.length === 2 && pinchStart) {
-      ev.preventDefault();
-      const currentDistance = dist(ev.touches[0], ev.touches[1]);
-      const factor = currentDistance / pinchStart.distance;
-
-      // Ignora cambios muy pequeños (menos de 2% de cambio)
-      if (Math.abs(factor - 1) > 0.02) {
-        const cx = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
-        const cy = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
-        zoomAround(clientToSvgPoint(cx, cy), factor);
-        // Actualiza la distancia para el siguiente evento
-        pinchStart.distance = currentDistance;
+    if (pointers.size >= 2) {
+      // --- pinch zoom + two-finger pan ---
+      const pts = activePoints();
+      const curDist = spread(pts);
+      const curMid = midpoint(pts);
+      refreshCtmScale();
+      // Translate by midpoint movement (two-finger drag).
+      const mdx = (curMid.x - pinchPrevMid.x) / ctmScale.a;
+      const mdy = (curMid.y - pinchPrevMid.y) / ctmScale.d;
+      if (mdx || mdy) setViewBox(vb.x - mdx, vb.y - mdy, vb.w, vb.h);
+      // Scale around the current midpoint.
+      if (pinchPrevDist > 0) {
+        zoomAround(clientToSvgPoint(curMid.x, curMid.y), curDist / pinchPrevDist);
       }
+      pinchPrevDist = curDist;
+      pinchPrevMid = curMid;
+      return;
     }
-  }, { passive: false });
 
-  container.addEventListener('touchend', () => { pinchStart = null; });
-  container.addEventListener('touchcancel', () => { pinchStart = null; });
+    if (panActive) {
+      movedDist = Math.hypot(ev.clientX - panDownPoint.x, ev.clientY - panDownPoint.y);
+      const dx = (ev.clientX - panDownPoint.x) / ctmScale.a;
+      const dy = (ev.clientY - panDownPoint.y) / ctmScale.d;
+      setViewBox(panStartVb.x - dx, panStartVb.y - dy, panStartVb.w, panStartVb.h);
+    }
+  });
+
+  function removePointer(ev) {
+    if (!pointers.has(ev.pointerId)) return;
+    pointers.delete(ev.pointerId);
+    try { container.releasePointerCapture(ev.pointerId); } catch (e) {}
+
+    if (pointers.size === 1) {
+      // Dropped from pinch back to one finger: resume pan from where it is,
+      // resetting the baseline so the map doesn't jump.
+      const p = activePoints()[0];
+      beginPan(p.x, p.y);
+    } else if (pointers.size === 0) {
+      panActive = false;
+      container.classList.remove('panning');
+      // Treat as a tap only if it was a single, near-stationary touch.
+      if (!pinchHappened && tapStart && movedDist < 6 && onTap) onTap(ev);
+      tapStart = null;
+    }
+  }
+  container.addEventListener('pointerup', removePointer);
+  container.addEventListener('pointercancel', removePointer);
 
   container.addEventListener('dblclick', () => resetZoom());
 }
