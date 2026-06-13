@@ -130,23 +130,37 @@ export function setupZoomPan(container, svg, onTap) {
   container.addEventListener('pointercancel', () => { isPanning = false; container.classList.remove('panning'); });
 
   // --- touch pinch -------------------------------------------------------
-  let ongoing = [];
+  let pinchStart = null;
   const dist = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+
   container.addEventListener('touchstart', (ev) => {
-    if (ev.touches.length === 2) ongoing = [ev.touches[0], ev.touches[1]];
-  }, { passive: false });
-  container.addEventListener('touchmove', (ev) => {
-    if (ev.touches.length === 2 && ongoing.length === 2) {
-      ev.preventDefault();
-      const t1 = ev.touches[0], t2 = ev.touches[1];
-      const factor = dist(t1, t2) / dist(ongoing[0], ongoing[1]);
-      const cx = (t1.clientX + t2.clientX) / 2, cy = (t1.clientY + t2.clientY) / 2;
-      zoomAround(clientToSvgPoint(cx, cy), factor);
-      ongoing = [t1, t2];
+    if (ev.touches.length === 2) {
+      pinchStart = {
+        distance: dist(ev.touches[0], ev.touches[1]),
+        touches: [ev.touches[0], ev.touches[1]]
+      };
     }
   }, { passive: false });
-  container.addEventListener('touchend', () => { ongoing = []; });
-  container.addEventListener('touchcancel', () => { ongoing = []; });
+
+  container.addEventListener('touchmove', (ev) => {
+    if (ev.touches.length === 2 && pinchStart) {
+      ev.preventDefault();
+      const currentDistance = dist(ev.touches[0], ev.touches[1]);
+      const factor = currentDistance / pinchStart.distance;
+
+      // Ignora cambios muy pequeños (menos de 2% de cambio)
+      if (Math.abs(factor - 1) > 0.02) {
+        const cx = (ev.touches[0].clientX + ev.touches[1].clientX) / 2;
+        const cy = (ev.touches[0].clientY + ev.touches[1].clientY) / 2;
+        zoomAround(clientToSvgPoint(cx, cy), factor);
+        // Actualiza la distancia para el siguiente evento
+        pinchStart.distance = currentDistance;
+      }
+    }
+  }, { passive: false });
+
+  container.addEventListener('touchend', () => { pinchStart = null; });
+  container.addEventListener('touchcancel', () => { pinchStart = null; });
 
   container.addEventListener('dblclick', () => resetZoom());
 }
