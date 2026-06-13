@@ -30,7 +30,7 @@ export function setupToolbar() {
 
   on('save-mapping', 'click', async () => {
     const res = await saveMapping(getAllMapping());
-    flashNotification(res.ok ? 'Mapeo guardado' : 'Error al guardar');
+    flashNotification(res.ok ? 'Assignació guardada' : 'Error al guardar');
   });
 
   on('show-solution', 'click', () => {

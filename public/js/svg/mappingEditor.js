@@ -12,13 +12,13 @@ export async function assignShapeMapping(el) {
     clearMapping(idx);
     el.removeAttribute('data-name');
     el.classList.remove('mapped');
-    flashNotification('Asignación eliminada');
+    flashNotification('Assignació eliminada');
     return;
   }
   setMapping(idx, answer);
   el.setAttribute('data-name', answer);
   el.classList.add('mapped');
-  flashNotification('Asignado: ' + answer);
+  flashNotification('Assignat: ' + answer);
 }
 
 // Populate and show the mapping modal, resolving with the chosen name,
@@ -34,7 +34,7 @@ function openMappingModal(currentValue) {
     sel.innerHTML = '';
     const emptyOpt = document.createElement('option');
     emptyOpt.value = '';
-    emptyOpt.textContent = '-- sin asignar --';
+    emptyOpt.textContent = '-- sense assignar --';
     sel.appendChild(emptyOpt);
     getAllNames().forEach((name) => {
       const opt = document.createElement('option');

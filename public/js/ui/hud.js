@@ -20,7 +20,7 @@ export function setupHud() {
     if (s.score !== shownScore) {
       shownScore += Math.ceil((s.score - shownScore) / 3) || (s.score - shownScore);
       if (Math.abs(s.score - shownScore) <= 1) shownScore = s.score;
-      scoreEl.textContent = shownScore.toLocaleString('es-ES');
+      scoreEl.textContent = shownScore.toLocaleString('ca-ES');
       scoreEl.classList.remove('bump'); void scoreEl.offsetWidth; scoreEl.classList.add('bump');
     }
 

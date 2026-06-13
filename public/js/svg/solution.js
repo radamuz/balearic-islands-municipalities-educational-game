@@ -41,5 +41,5 @@ export function showSolution(svg) {
     it.classList.add('placed');
     it.draggable = false;
   });
-  flashNotification('Solución mostrada');
+  flashNotification('Solució mostrada');
 }

@@ -30,7 +30,7 @@ async function loadMap() {
   const mapContainer = document.getElementById('map-container');
   mapContainer.innerHTML = svgText;
   const svg = mapContainer.querySelector('svg');
-  if (!svg) { mapContainer.textContent = 'No se encontró el SVG del mapa.'; return null; }
+  if (!svg) { mapContainer.textContent = 'No es va trobar el SVG del mapa.'; return null; }
   svg.removeAttribute('width');
   svg.removeAttribute('height');
 
