@@ -2,7 +2,7 @@
 <html lang="ca">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Illes Balears Arcade — Aprèn el mapa jugant</title>
   <link rel="stylesheet" href="/styles/base.css">
   <link rel="stylesheet" href="/styles/map.css">
@@ -14,7 +14,10 @@
     <!-- Left: draggable names -->
     <aside id="lists-panel">
       <div class="panel-head">
-        <h2>Noms</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <h2>Noms</h2>
+          <button id="close-lists-panel" class="mobile-only close-btn" title="Tancar">✕</button>
+        </div>
         <input id="list-search" type="search" placeholder="Cercar…" autocomplete="off" />
       </div>
       <div id="lists"></div>

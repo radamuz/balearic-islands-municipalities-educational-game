@@ -5,6 +5,16 @@ import { showSolution } from '../svg/solution.js';
 import { showLeaderboard } from './overlays.js';
 import { flashNotification } from './notifications.js';
 
+function closeListsPanel() {
+  const panel = document.getElementById('lists-panel');
+  panel.classList.remove('open');
+}
+
+function openListsPanel() {
+  const panel = document.getElementById('lists-panel');
+  panel.classList.add('open');
+}
+
 export function setupToolbar() {
   const container = document.getElementById('map-container');
   const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); };
@@ -15,8 +25,26 @@ export function setupToolbar() {
   on('leaderboard-btn', 'click', () => showLeaderboard());
 
   on('toggle-lists-mobile', 'click', () => {
-    document.getElementById('lists-panel').classList.toggle('open');
+    const panel = document.getElementById('lists-panel');
+    if (panel.classList.contains('open')) {
+      closeListsPanel();
+    } else {
+      openListsPanel();
+    }
   });
+
+  on('close-lists-panel', 'click', closeListsPanel);
+
+  // Cerrar panel al tocar el área del mapa en móvil
+  const mapArea = document.getElementById('map-area');
+  if (mapArea) {
+    mapArea.addEventListener('click', (e) => {
+      const panel = document.getElementById('lists-panel');
+      if (panel && panel.classList.contains('open') && e.target !== panel && !panel.contains(e.target)) {
+        closeListsPanel();
+      }
+    });
+  }
 
   let mappingMode = false;
   on('edit-mapping', 'click', () => {

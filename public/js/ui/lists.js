@@ -35,6 +35,9 @@ export function createListSection(title, items) {
       e.dataTransfer.setData('text/plain', JSON.stringify({ name: it, kind }));
       e.dataTransfer.effectAllowed = 'move';
       li.classList.add('dragging');
+      // Cerrar el panel en móvil cuando se arrastra
+      const panel = document.getElementById('lists-panel');
+      if (panel) panel.classList.remove('open');
     });
     li.addEventListener('dragend', () => li.classList.remove('dragging'));
     ul.appendChild(li);
