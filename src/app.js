@@ -5,6 +5,7 @@ const datasourcesRouter = require('./routes/datasources');
 const mappingRouter = require('./routes/mapping');
 const scoresRouter = require('./routes/scores');
 const accessLogRouter = require('./routes/accessLog');
+const flagsRouter = require('./routes/flags');
 const { logRequest } = require('./services/accessLogService');
 
 const app = express();
@@ -27,5 +28,6 @@ app.use('/api/datasources', datasourcesRouter);
 app.use('/api/mapping', mappingRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/access-log', accessLogRouter);
+app.use('/api/flags', flagsRouter);
 
 module.exports = app;

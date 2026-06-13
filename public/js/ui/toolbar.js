@@ -4,6 +4,7 @@ import { getAllMapping } from '../svg/mappingState.js';
 import { showSolution } from '../svg/solution.js';
 import { showLeaderboard } from './overlays.js';
 import { showLeaderboardTool, showAccessLogTool } from './dataTools.js';
+import { initFlags } from './flags.js';
 import { flashNotification } from './notifications.js';
 
 function closeListsPanel() {
@@ -82,4 +83,6 @@ export function setupToolbar() {
 
   on('manage-leaderboard', 'click', () => showLeaderboardTool());
   on('manage-accesslog', 'click', () => showAccessLogTool());
+
+  initFlags();
 }

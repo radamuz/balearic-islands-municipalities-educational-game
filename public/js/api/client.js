@@ -70,3 +70,13 @@ export async function importAccessLog(entries) {
   });
   return res.json();
 }
+
+// Load the current feature flags (resolved server-side). Returns {} on failure.
+export async function loadFlags() {
+  try {
+    const res = await fetch('/api/flags');
+    return res.json();
+  } catch (e) {
+    return {};
+  }
+}
