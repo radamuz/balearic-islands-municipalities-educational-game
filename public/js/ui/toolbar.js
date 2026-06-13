@@ -24,16 +24,26 @@ export function setupToolbar() {
   on('zoom-reset', 'click', () => resetZoom());
   on('leaderboard-btn', 'click', () => showLeaderboard());
 
-  on('toggle-lists-mobile', 'click', () => {
-    const panel = document.getElementById('lists-panel');
-    if (panel.classList.contains('open')) {
-      closeListsPanel();
-    } else {
-      openListsPanel();
-    }
-  });
+  // Toggle lists panel on mobile
+  const toggleBtn = document.getElementById('toggle-lists-mobile');
+  const closeBtn = document.getElementById('close-lists-panel');
+  const panel = document.getElementById('lists-panel');
 
-  on('close-lists-panel', 'click', closeListsPanel);
+  if (toggleBtn && panel) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      panel.classList.toggle('open');
+    });
+  }
+
+  if (closeBtn && panel) {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeListsPanel();
+    });
+  }
 
   // Cerrar panel al tocar el área del mapa en móvil
   const mapArea = document.getElementById('map-area');
