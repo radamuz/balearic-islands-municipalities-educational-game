@@ -2,36 +2,90 @@
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Juego Educacional - Illes Balears</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Illes Balears Arcade — Aprende el mapa jugando</title>
   <link rel="stylesheet" href="/styles/base.css">
   <link rel="stylesheet" href="/styles/map.css">
+  <link rel="stylesheet" href="/styles/game.css">
   <link rel="stylesheet" href="/styles/modal.css">
 </head>
 <body>
-  <header>
-    <h1>Juego: Arrastra la isla/municipio al mapa</h1>
-    <p>Arrastra cada nombre a su lugar en el mapa. Verás si aciertas.</p>
-  </header>
+  <div id="app">
+    <!-- Left: draggable names -->
+    <aside id="lists-panel">
+      <div class="panel-head">
+        <h2>Piezas</h2>
+        <input id="list-search" type="search" placeholder="Buscar…" autocomplete="off" />
+      </div>
+      <div id="lists"></div>
+    </aside>
 
-  <main>
-    <section id="panels">
-      <aside id="lists"></aside>
-      <div id="map-area">
-        <div id="map-toolbar" aria-hidden="false">
+    <!-- Right: map + HUD -->
+    <section id="map-area">
+      <header id="topbar">
+        <div class="brand">
+          <span class="brand-mark">🏝️</span>
+          <div class="brand-text">
+            <strong>Illes Balears Arcade</strong>
+            <small>Arrastra cada isla y municipio a su lugar</small>
+          </div>
+        </div>
+        <div id="hud">
+          <div class="hud-cell"><label>Tiempo</label><span id="hud-time">00:00</span></div>
+          <div class="hud-cell hud-score-cell"><label>Puntos</label><span id="hud-score">0</span></div>
+          <div class="hud-cell"><label>Combo</label><span id="hud-combo" class="combo">x1</span></div>
+        </div>
+      </header>
+
+      <div id="map-stage">
+        <div id="map-container">Cargando mapa…</div>
+
+        <div id="map-toolbar">
           <button id="zoom-in" title="Acercar">＋</button>
           <button id="zoom-out" title="Alejar">−</button>
-          <button id="zoom-reset" title="Restablecer">⟳</button>
-          <button id="edit-mapping" title="Editar mapeo">🗺️ Mapeo</button>
-          <button id="save-mapping" title="Guardar mapeo">💾 Guardar</button>
-          <button id="show-solution" title="Ver solución">👁️ Solución</button>
-          <button id="toggle-lists-mobile" class="mobile-only" title="Mostrar/Ocultar lista">☰</button>
+          <button id="zoom-reset" title="Centrar mapa">⟳</button>
+          <button id="leaderboard-btn" title="Clasificación">🏆</button>
+          <button id="toggle-lists-mobile" class="mobile-only" title="Mostrar piezas">☰</button>
+          <details class="dev-tools">
+            <summary title="Herramientas">⚙️</summary>
+            <div class="dev-menu">
+              <button id="edit-mapping" title="Editar mapeo">🗺️ Mapeo</button>
+              <button id="save-mapping" title="Guardar mapeo">💾 Guardar</button>
+              <button id="show-solution" title="Ver solución">👁️ Solución</button>
+            </div>
+          </details>
         </div>
-        <div id="map-container">Cargando mapa...</div>
-        <div id="score">Aciertos: <span id="correct">0</span></div>
+
+        <div id="progress-bar">
+          <div id="hud-progress-fill"></div>
+          <span id="hud-progress-text">0 / 0</span>
+        </div>
       </div>
     </section>
-  </main>
+  </div>
+
+  <!-- Overlays -->
+  <div id="start-overlay" class="overlay hidden">
+    <div class="overlay-card start-card">
+      <div class="start-emoji">🗺️</div>
+      <h1>Illes Balears <span>Arcade</span></h1>
+      <p>Coloca las <strong>8 islas</strong> y los <strong>67 municipios</strong> en el mapa lo más rápido y preciso posible. Encadena aciertos para multiplicar tu combo.</p>
+      <ul class="how-to">
+        <li>🖱️ <strong>Arrastra</strong> un nombre sobre el mapa</li>
+        <li>🔍 <strong>Rueda</strong> para zoom, <strong>arrastra</strong> el mapa para moverte</li>
+        <li>⚡ Rapidez + combo + precisión = más puntos</li>
+      </ul>
+      <button id="start-btn" class="btn-primary big">▶ Empezar a jugar</button>
+    </div>
+  </div>
+
+  <div id="finish-overlay" class="overlay hidden">
+    <div class="overlay-card" id="finish-body"></div>
+  </div>
+
+  <div id="leaderboard-overlay" class="overlay hidden">
+    <div class="overlay-card" id="leaderboard-body"></div>
+  </div>
 
   <template id="list-template">
     <section class="source">

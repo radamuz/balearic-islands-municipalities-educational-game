@@ -1,0 +1,110 @@
+/* ---- HUD (in the topbar) --------------------------------------------- */
+#hud{display:flex;gap:10px;align-items:stretch}
+.hud-cell{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-width:74px;padding:6px 12px;border-radius:12px;
+  background:rgba(0,0,0,.28);border:1px solid var(--border);
+}
+.hud-cell label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.hud-cell span{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.hud-score-cell span{color:var(--gold)}
+#hud-score.bump{animation:bump .25s ease}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.18)}100%{transform:scale(1)}}
+.combo{color:var(--muted)}
+.combo.active{color:var(--accent);animation:bump .25s ease}
+
+/* ---- Floating feedback popups ---------------------------------------- */
+.pop-feedback{
+  position:fixed;transform:translate(-50%,-50%);z-index:200;pointer-events:none;
+  text-align:center;opacity:1;transition:transform .85s cubic-bezier(.2,.8,.2,1),opacity .85s ease;
+}
+.pop-feedback.rise{transform:translate(-50%,-180%);opacity:0}
+.pop-main{font-size:26px;font-weight:900;color:var(--green);text-shadow:0 2px 6px rgba(0,0,0,.5)}
+.pop-sub{font-size:13px;font-weight:800;color:var(--gold);letter-spacing:.05em}
+.pop-feedback.error .pop-main{color:var(--red)}
+
+/* ---- Toasts ----------------------------------------------------------- */
+.notification{
+  position:fixed;right:18px;bottom:18px;z-index:200;
+  padding:11px 16px;border-radius:12px;font-weight:600;
+  background:var(--panel-solid);color:var(--text);border:1px solid var(--border);
+  box-shadow:var(--shadow);opacity:0;transform:translateY(10px);
+  transition:opacity .25s ease, transform .25s ease;
+}
+.notification.show{opacity:1;transform:none}
+
+/* ---- Overlays --------------------------------------------------------- */
+.overlay{
+  position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;
+  padding:20px;background:rgba(6,9,28,.78);backdrop-filter:blur(8px);
+  animation:fade .25s ease;
+}
+.overlay.hidden{display:none}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.overlay-card{
+  width:min(560px,100%);max-height:92vh;overflow:auto;
+  background:linear-gradient(160deg,rgba(28,34,78,.98),rgba(16,20,52,.98));
+  border:1px solid var(--border);border-radius:20px;
+  box-shadow:var(--shadow);padding:28px;text-align:center;
+  animation:pop .3s cubic-bezier(.2,.9,.3,1.2);
+}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+
+.start-card .start-emoji{font-size:56px;line-height:1}
+.start-card h1{margin:6px 0 10px;font-size:38px;letter-spacing:.01em}
+.start-card h1 span{color:var(--accent)}
+.overlay-card p{color:var(--muted);line-height:1.5;margin:0 auto 16px;max-width:46ch}
+.overlay-card strong{color:var(--text)}
+.how-to{list-style:none;padding:0;margin:0 auto 22px;max-width:34ch;text-align:left;display:flex;flex-direction:column;gap:8px}
+.how-to li{background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:14px;color:var(--muted)}
+.how-to strong{color:var(--text)}
+
+/* Buttons */
+.btn-primary,.btn-secondary{
+  border:none;border-radius:12px;font-weight:800;cursor:pointer;
+  padding:12px 20px;font-size:15px;transition:transform .1s ease, filter .15s ease;
+}
+.btn-primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#06122a}
+.btn-primary.big{padding:15px 30px;font-size:18px}
+.btn-primary:hover{transform:translateY(-2px);filter:brightness(1.08)}
+.btn-secondary{background:rgba(255,255,255,.1);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:rgba(255,255,255,.18)}
+
+/* ---- Finish screen ---------------------------------------------------- */
+#finish-body h2{margin:0 0 18px;font-size:28px}
+.result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+.result-stat{background:rgba(0,0,0,.25);border:1px solid var(--border);border-radius:12px;padding:12px 6px;display:flex;flex-direction:column;gap:2px}
+.result-stat .big{font-size:24px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}
+.result-stat label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+
+.name-entry{margin:8px 0 16px}
+.name-entry > label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.1em}
+.name-row{display:flex;gap:8px;max-width:340px;margin:0 auto}
+#player-name{
+  flex:1;padding:12px 14px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(0,0,0,.3);color:var(--text);font-size:18px;font-weight:800;
+  text-align:center;letter-spacing:.18em;text-transform:uppercase;outline:none;
+}
+#player-name:focus{border-color:var(--accent)}
+.finish-actions{margin-top:18px;display:flex;justify-content:center;gap:10px}
+
+/* ---- Leaderboard table ----------------------------------------------- */
+#finish-board h3,#leaderboard-body h2{margin:14px 0 10px}
+.score-table{width:100%;border-collapse:collapse;font-size:14px}
+.score-table th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:6px 8px;text-align:left}
+.score-table td{padding:8px;border-top:1px solid var(--border)}
+.score-table .rank{font-weight:800;width:42px}
+.score-table .who{font-weight:700;letter-spacing:.06em}
+.score-table .pts{color:var(--gold);font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.score-table .tm,.score-table .acc{color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.score-table tr.you td{background:rgba(46,230,214,.16);color:#fff}
+.score-table tr.you .who{color:var(--accent)}
+.empty{color:var(--muted);padding:18px 0}
+
+@media (max-width:880px){
+  #hud{gap:6px}
+  .hud-cell{min-width:58px;padding:4px 8px}
+  .hud-cell span{font-size:18px}
+  .result-grid{grid-template-columns:repeat(2,1fr)}
+  .start-card h1{font-size:30px}
+}

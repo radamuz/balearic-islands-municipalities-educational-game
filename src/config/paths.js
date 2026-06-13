@@ -8,4 +8,5 @@ module.exports = {
   IMAGES_DIR: path.join(ROOT_DIR, 'images'),
   DATASOURCE_DIR: path.join(ROOT_DIR, 'datasource'),
   MAPPING_PATH: path.join(ROOT_DIR, 'mapping.json'),
+  SCORES_PATH: path.join(ROOT_DIR, 'scores.json'),
 };

@@ -1,8 +1,14 @@
-/* Manual mapping modal */
-#mapping-modal{position:fixed; inset:0; background:rgba(0,0,0,0.4); display:flex; align-items:center; justify-content:center; z-index:1000}
+/* Manual mapping modal (dev tool) */
+#mapping-modal{position:fixed;inset:0;background:rgba(6,9,28,.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000}
 #mapping-modal.hidden{display:none}
-.mapping-modal-box{background:#fff; padding:16px; border-radius:8px; min-width:280px; box-shadow:0 4px 18px rgba(0,0,0,0.25)}
-.mapping-modal-box h3{margin:0 0 10px}
-.mapping-modal-box select{width:100%; padding:6px; font-size:14px}
-.mapping-modal-actions{display:flex; gap:8px; justify-content:flex-end; margin-top:12px}
-.mapping-modal-actions button{padding:6px 10px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer}
+.mapping-modal-box{
+  background:linear-gradient(160deg,rgba(28,34,78,.98),rgba(16,20,52,.98));
+  color:var(--text);padding:20px;border-radius:16px;min-width:300px;
+  border:1px solid var(--border);box-shadow:var(--shadow);
+}
+.mapping-modal-box h3{margin:0 0 12px}
+.mapping-modal-box select{width:100%;padding:9px;font-size:14px;border-radius:10px;background:rgba(0,0,0,.3);color:var(--text);border:1px solid var(--border)}
+.mapping-modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.mapping-modal-actions button{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.08);color:var(--text);cursor:pointer}
+.mapping-modal-actions button:hover{background:rgba(255,255,255,.16)}
+#mapping-confirm{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#06122a;border:none;font-weight:700}

@@ -1,16 +1,39 @@
-// SVG viewBox-based zoom & pan. Other modules call zoomBy/resetZoom/updateViewBox
-// directly once setupZoomPan has run for the current map SVG.
+// SVG viewBox-based zoom & pan. Panning is computed from raw pixel deltas using
+// the screen-CTM captured at drag start (not re-projected every move) so it
+// tracks the cursor 1:1 and stays smooth. Other modules subscribe to viewBox
+// changes (onViewBoxChange) to keep zoom-aware overlays like labels in sync.
 
 let vb = { x: 0, y: 0, w: 0, h: 0 };
 let initial = { x: 0, y: 0, w: 0, h: 0 };
 let svgEl = null;
+let containerEl = null;
 
-const minScale = 0.2;
-const maxScale = 8;
+const minScale = 0.5;
+const maxScale = 14;
+
+const changeSubs = [];
+export function onViewBoxChange(cb) { changeSubs.push(cb); }
+
+// Current rendered px-per-viewBox-unit (accounts for letterboxing).
+export function getScale() {
+  const ctm = svgEl && svgEl.getScreenCTM();
+  if (ctm && ctm.a) return ctm.a;
+  if (containerEl) return containerEl.clientWidth / vb.w;
+  return 1;
+}
+
+export function getViewBox() { return { ...vb }; }
+
+let rafPending = false;
+function applyViewBox() {
+  rafPending = false;
+  svgEl.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  changeSubs.forEach((cb) => cb(vb));
+}
 
 function setViewBox(x, y, w, h) {
   vb = { x, y, w, h };
-  svgEl.setAttribute('viewBox', `${x} ${y} ${w} ${h}`);
+  if (!rafPending) { rafPending = true; requestAnimationFrame(applyViewBox); }
 }
 
 function clampScale(scale) {
@@ -22,9 +45,7 @@ function clientToSvgPoint(clientX, clientY) {
   pt.x = clientX; pt.y = clientY;
   const ctm = svgEl.getScreenCTM();
   if (!ctm) return { x: clientX, y: clientY };
-  const inv = ctm.inverse();
-  const p = pt.matrixTransform(inv);
-  return { x: p.x, y: p.y };
+  return pt.matrixTransform(ctm.inverse());
 }
 
 function zoomAround(svgPoint, factor) {
@@ -37,107 +58,95 @@ function zoomAround(svgPoint, factor) {
   setViewBox(newX, newY, newW, newH);
 }
 
-// Zoom by `factor` (>1 zooms in, <1 zooms out), centered on the container.
-export function zoomBy(factor, container) {
-  const rect = container.getBoundingClientRect();
-  const cx = rect.left + rect.width / 2;
-  const cy = rect.top + rect.height / 2;
-  zoomAround(clientToSvgPoint(cx, cy), factor);
+// Zoom by `factor` (>1 in, <1 out), centered on the container.
+export function zoomBy(factor) {
+  const rect = containerEl.getBoundingClientRect();
+  zoomAround(clientToSvgPoint(rect.left + rect.width / 2, rect.top + rect.height / 2), factor);
 }
 
 export function resetZoom() {
   setViewBox(initial.x, initial.y, initial.w, initial.h);
 }
 
-// Expand the canvas (e.g. to fit solution labels) and make that the new "reset" viewBox.
+// Expand the canvas (e.g. to fit solution labels) and make it the new reset box.
 export function updateViewBox(x, y, w, h) {
   initial = { x, y, w, h };
   setViewBox(x, y, w, h);
 }
 
-// Use SVG viewBox for crisp zooming and panning (vector-scaled).
 export function setupZoomPan(container, svg, onTap) {
   svgEl = svg;
+  containerEl = container;
 
   const vbAttr = svg.getAttribute('viewBox');
   if (vbAttr) {
-    const parts = vbAttr.split(/\s+/).map(Number);
-    if (parts.length === 4) vb = { x: parts[0], y: parts[1], w: parts[2], h: parts[3] };
+    const p = vbAttr.split(/\s+/).map(Number);
+    if (p.length === 4) vb = { x: p[0], y: p[1], w: p[2], h: p[3] };
   } else {
-    vb = {
-      x: 0, y: 0,
-      w: (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width) ? svg.viewBox.baseVal.width : svg.clientWidth,
-      h: (svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.height) ? svg.viewBox.baseVal.height : svg.clientHeight,
-    };
+    const bb = svg.getBBox();
+    vb = { x: bb.x, y: bb.y, w: bb.width, h: bb.height };
     svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   }
   initial = { ...vb };
 
-  // wheel zoom centered on cursor
   container.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     const svgP = clientToSvgPoint(ev.clientX, ev.clientY);
-    const delta = ev.deltaY > 0 ? 1 / 1.12 : 1.12;
-    zoomAround(svgP, delta);
+    zoomAround(svgP, ev.deltaY > 0 ? 1 / 1.15 : 1.15);
   }, { passive: false });
 
-  // panning via pointer drag (left-button) or middle/right
-  let isPanning = false; let panStart = null; let startVb = null; let downPoint = null;
+  // --- smooth pointer panning -------------------------------------------
+  let isPanning = false, startVb = null, downPoint = null, ctmScale = { a: 1, d: 1 };
   container.addEventListener('pointerdown', (ev) => {
-    const clickedOnSvg = (ev.target instanceof Element) && (ev.target.closest && ev.target.closest('svg'));
+    const onSvg = (ev.target instanceof Element) && ev.target.closest && ev.target.closest('svg');
     if (ev.pointerType === 'mouse') {
       const isLeft = ev.button === 0;
       const isMiddleOrRight = ev.button === 1 || ev.button === 2;
-      if (!(isMiddleOrRight || (isLeft && clickedOnSvg))) return;
+      if (!(isMiddleOrRight || (isLeft && onSvg))) return;
     }
     isPanning = true;
-    panStart = clientToSvgPoint(ev.clientX, ev.clientY);
     startVb = { ...vb };
     downPoint = { x: ev.clientX, y: ev.clientY };
+    const ctm = svgEl.getScreenCTM();
+    ctmScale = { a: (ctm && ctm.a) || 1, d: (ctm && ctm.d) || 1 };
+    container.classList.add('panning');
     try { container.setPointerCapture(ev.pointerId); } catch (e) {}
   });
   container.addEventListener('pointermove', (ev) => {
     if (!isPanning) return;
-    const cur = clientToSvgPoint(ev.clientX, ev.clientY);
-    const dx = cur.x - panStart.x; const dy = cur.y - panStart.y;
+    const dx = (ev.clientX - downPoint.x) / ctmScale.a;
+    const dy = (ev.clientY - downPoint.y) / ctmScale.d;
     setViewBox(startVb.x - dx, startVb.y - dy, startVb.w, startVb.h);
   });
-  container.addEventListener('pointerup', (ev) => {
+  function endPan(ev) {
     if (!isPanning) return;
     isPanning = false;
+    container.classList.remove('panning');
     try { container.releasePointerCapture(ev.pointerId); } catch (e) {}
-    // pointer capture re-targets pointer events to the container, so a plain
-    // 'click' on the SVG shape underneath never fires. Detect a tap (no
-    // meaningful movement) here and let the caller resolve the shape under it.
     const moved = Math.hypot(ev.clientX - downPoint.x, ev.clientY - downPoint.y);
     if (moved < 4 && onTap) onTap(ev);
-  });
-  container.addEventListener('pointercancel', () => { isPanning = false; });
-
-  // touch pinch handling
-  let ongoingTouches = [];
-  function getDistance(t1, t2) {
-    const dx = t2.clientX - t1.clientX; const dy = t2.clientY - t1.clientY;
-    return Math.hypot(dx, dy);
   }
+  container.addEventListener('pointerup', endPan);
+  container.addEventListener('pointercancel', () => { isPanning = false; container.classList.remove('panning'); });
+
+  // --- touch pinch -------------------------------------------------------
+  let ongoing = [];
+  const dist = (a, b) => Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
   container.addEventListener('touchstart', (ev) => {
-    if (ev.touches.length === 2) { ongoingTouches = [ev.touches[0], ev.touches[1]]; }
+    if (ev.touches.length === 2) ongoing = [ev.touches[0], ev.touches[1]];
   }, { passive: false });
   container.addEventListener('touchmove', (ev) => {
-    if (ev.touches.length === 2 && ongoingTouches.length === 2) {
+    if (ev.touches.length === 2 && ongoing.length === 2) {
       ev.preventDefault();
       const t1 = ev.touches[0], t2 = ev.touches[1];
-      const prevDist = getDistance(ongoingTouches[0], ongoingTouches[1]);
-      const newDist = getDistance(t1, t2);
-      const factor = newDist / prevDist;
-      const cx = (t1.clientX + t2.clientX) / 2; const cy = (t1.clientY + t2.clientY) / 2;
+      const factor = dist(t1, t2) / dist(ongoing[0], ongoing[1]);
+      const cx = (t1.clientX + t2.clientX) / 2, cy = (t1.clientY + t2.clientY) / 2;
       zoomAround(clientToSvgPoint(cx, cy), factor);
-      ongoingTouches = [t1, t2];
+      ongoing = [t1, t2];
     }
   }, { passive: false });
-  container.addEventListener('touchend', () => { ongoingTouches = []; });
-  container.addEventListener('touchcancel', () => { ongoingTouches = []; });
+  container.addEventListener('touchend', () => { ongoing = []; });
+  container.addEventListener('touchcancel', () => { ongoing = []; });
 
-  // reset on double click
   container.addEventListener('dblclick', () => resetZoom());
 }
