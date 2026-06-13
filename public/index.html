@@ -55,6 +55,8 @@
               <button id="edit-mapping" title="Editar assignació">🗺️ Assignació</button>
               <button id="save-mapping" title="Guardar assignació">💾 Guardar</button>
               <button id="show-solution" title="Veure solució">👁️ Solució</button>
+              <button id="manage-leaderboard" title="Gestionar classificació">🏅 Classificació</button>
+              <button id="manage-accesslog" title="Registre d'accessos">📡 Accessos</button>
             </div>
           </details>
         </div>
@@ -88,6 +90,14 @@
 
   <div id="leaderboard-overlay" class="overlay hidden">
     <div class="overlay-card" id="leaderboard-body"></div>
+  </div>
+
+  <div id="leaderboard-tool-overlay" class="overlay hidden">
+    <div class="overlay-card" id="leaderboard-tool-body"></div>
+  </div>
+
+  <div id="accesslog-overlay" class="overlay hidden">
+    <div class="overlay-card overlay-card-wide" id="accesslog-body"></div>
   </div>
 
   <template id="list-template">

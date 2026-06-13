@@ -70,6 +70,27 @@
 .btn-secondary{background:rgba(255,255,255,.1);color:var(--text);border:1px solid var(--border)}
 .btn-secondary:hover{background:rgba(255,255,255,.18)}
 
+/* ---- Data tools (leaderboard / access log management) ----------------- */
+.overlay-card-wide{width:min(1000px,100%)}
+.tool-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0 6px}
+.tool-actions .btn-secondary{padding:9px 14px;font-size:13px}
+.tool-count{color:var(--muted);font-size:12px;margin:6px 0}
+.tool-search{
+  width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(0,0,0,.3);color:var(--text);font-size:14px;outline:none;margin:6px 0 10px;
+}
+.tool-search:focus{border-color:var(--accent)}
+.tool-table-wrap{max-height:55vh;overflow:auto;border-radius:12px;text-align:left}
+.access-log-wrap{border:1px solid var(--border)}
+.access-log-table{font-size:12.5px}
+.access-log-table thead th{position:sticky;top:0;background:var(--panel-solid);z-index:1}
+.access-log-table td{vertical-align:top;white-space:nowrap}
+.access-log-table .al-path{white-space:normal;word-break:break-all;color:var(--muted)}
+.al-method{
+  display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;
+  padding:1px 6px;border-radius:6px;background:rgba(46,230,214,.18);color:var(--accent);
+}
+
 /* ---- Finish screen ---------------------------------------------------- */
 #finish-body h2{margin:0 0 18px;font-size:28px}
 .result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}

@@ -36,4 +36,24 @@ function addScore(entry) {
   return { entry: clean, rank: rank || null, scores: trimmed };
 }
 
-module.exports = { getScores, addScore };
+// Replace the whole leaderboard with an imported array. Sanitizes each entry,
+// keeps it sorted best-first and capped. Throws if the payload isn't an array.
+function replaceScores(entries) {
+  if (!Array.isArray(entries)) throw new Error('Scores payload must be an array');
+  const clean = entries.map((entry) => ({
+    name: String(entry.name || 'ANÓNIMO').trim().slice(0, 12).toUpperCase() || 'ANÓNIMO',
+    points: Math.max(0, Math.round(Number(entry.points) || 0)),
+    timeMs: Math.max(0, Math.round(Number(entry.timeMs) || 0)),
+    correct: Math.max(0, Math.round(Number(entry.correct) || 0)),
+    mistakes: Math.max(0, Math.round(Number(entry.mistakes) || 0)),
+    total: Math.max(0, Math.round(Number(entry.total) || 0)),
+    maxCombo: Math.max(0, Math.round(Number(entry.maxCombo) || 0)),
+    date: entry.date ? String(entry.date) : new Date().toISOString(),
+  }));
+  clean.sort((a, b) => b.points - a.points || a.timeMs - b.timeMs);
+  const trimmed = clean.slice(0, MAX_SCORES);
+  fs.writeFileSync(SCORES_PATH, JSON.stringify(trimmed, null, 2), 'utf8');
+  return trimmed;
+}
+
+module.exports = { getScores, addScore, replaceScores };

@@ -3,6 +3,7 @@ import { saveMapping } from '../api/client.js';
 import { getAllMapping } from '../svg/mappingState.js';
 import { showSolution } from '../svg/solution.js';
 import { showLeaderboard } from './overlays.js';
+import { showLeaderboardTool, showAccessLogTool } from './dataTools.js';
 import { flashNotification } from './notifications.js';
 
 function closeListsPanel() {
@@ -78,4 +79,7 @@ export function setupToolbar() {
     const b = document.getElementById('show-solution');
     if (b) b.disabled = true;
   });
+
+  on('manage-leaderboard', 'click', () => showLeaderboardTool());
+  on('manage-accesslog', 'click', () => showAccessLogTool());
 }

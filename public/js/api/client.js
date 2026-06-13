@@ -40,3 +40,33 @@ export async function submitScore(entry) {
     return null;
   }
 }
+
+// Replace the whole leaderboard with an imported array of entries.
+export async function importScores(scores) {
+  const res = await fetch('/api/scores/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(scores),
+  });
+  return res.json();
+}
+
+// Load the full access log (newest first). Pass a limit to cap the rows.
+export async function loadAccessLog(limit) {
+  try {
+    const res = await fetch('/api/access-log' + (limit ? `?limit=${limit}` : ''));
+    return res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+// Replace the whole access log with an imported array of entries.
+export async function importAccessLog(entries) {
+  const res = await fetch('/api/access-log/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entries),
+  });
+  return res.json();
+}
