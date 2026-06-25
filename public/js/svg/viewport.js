@@ -9,7 +9,7 @@ let svgEl = null;
 let containerEl = null;
 
 const minScale = 0.5;
-const maxScale = 40;
+const maxScale = 100;
 
 const changeSubs = [];
 export function onViewBoxChange(cb) { changeSubs.push(cb); }
