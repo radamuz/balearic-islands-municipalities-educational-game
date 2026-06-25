@@ -89,6 +89,11 @@ body{
 .item:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.35);background:rgba(46,230,214,.18);border-color:var(--accent)}
 .item:active{cursor:grabbing}
 .item.dragging{opacity:.45}
+.item.selected{
+  background:rgba(46,230,214,.28);border-color:var(--accent);
+  box-shadow:0 0 0 2px var(--accent),0 6px 16px rgba(0,0,0,.35);
+  transform:translateY(-2px);
+}
 .item-island{
   background:linear-gradient(180deg,rgba(255,211,77,.22),rgba(255,211,77,.08));
   border-color:rgba(255,211,77,.45);color:#ffe9a8;

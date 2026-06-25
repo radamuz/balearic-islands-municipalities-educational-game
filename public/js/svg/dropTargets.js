@@ -41,9 +41,32 @@ function highlightMatch(svg, el, placedName, group) {
   }
 }
 
-function handleDrop(svg, el, fallbackName, e) {
+function resolveTargetName(el) {
+  return el.getAttribute('data-name') || el.id || el.getAttribute('name') || el.getAttribute('inkscape:label');
+}
+
+// Core de colocación, compartido por arrastre y por click. Devuelve true si fue
+// un acierto. `clientX/clientY` sitúan el feedback flotante.
+export function attemptPlacement(svg, el, placedName, kind, clientX, clientY) {
+  if (!isPlaying()) return false;
+  const targetName = resolveTargetName(el);
+  if (isMatch(placedName, targetName, kind)) {
+    const group = getIslandGroup(placedName, kind);
+    highlightMatch(svg, el, placedName, group);
+    markItemPlaced(placedName, kind);
+    const { points, combo } = registerHit();
+    popFeedback(clientX, clientY, `+${points}`, combo >= 3 ? `COMBO x${combo}` : '');
+    return true;
+  }
+  el.classList.add('incorrect');
+  setTimeout(() => el.classList.remove('incorrect'), 500);
+  registerMistake();
+  popFeedback(clientX, clientY, '✗', '', true);
+  return false;
+}
+
+function handleDrop(svg, el, e) {
   e.preventDefault();
-  if (!isPlaying()) return;
   let placedName, kind;
   try {
     const data = JSON.parse(e.dataTransfer.getData('text/plain'));
@@ -51,28 +74,16 @@ function handleDrop(svg, el, fallbackName, e) {
   } catch (err) {
     placedName = e.dataTransfer.getData('text/plain'); kind = null;
   }
-  const targetName = el.getAttribute('data-name') || fallbackName;
-  if (isMatch(placedName, targetName, kind)) {
-    const group = getIslandGroup(placedName, kind);
-    highlightMatch(svg, el, placedName, group);
-    markItemPlaced(placedName, kind);
-    const { points, combo } = registerHit();
-    popFeedback(e.clientX, e.clientY, `+${points}`, combo >= 3 ? `COMBO x${combo}` : '');
-  } else {
-    el.classList.add('incorrect');
-    setTimeout(() => el.classList.remove('incorrect'), 500);
-    registerMistake();
-    popFeedback(e.clientX, e.clientY, '✗', '', true);
-  }
+  attemptPlacement(svg, el, placedName, kind, e.clientX, e.clientY);
 }
 
 export function setupSvgDropTargets(svg) {
   const shapeTargets = svg.querySelectorAll('path, polygon, rect, circle, ellipse');
   shapeTargets.forEach((el) => {
-    const nameAttr = el.getAttribute('data-name') || el.id || el.getAttribute('name') || el.getAttribute('inkscape:label');
+    const nameAttr = resolveTargetName(el);
     if (!nameAttr) return;
     el.classList.add('svg-drop-target');
     el.addEventListener('dragover', (e) => { e.preventDefault(); });
-    el.addEventListener('drop', (e) => handleDrop(svg, el, nameAttr, e));
+    el.addEventListener('drop', (e) => handleDrop(svg, el, e));
   });
 }

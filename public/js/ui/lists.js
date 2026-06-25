@@ -23,7 +23,9 @@ export function createListSection(title, items) {
   titleEl.appendChild(count);
 
   const ul = node.querySelector('.items');
-  items.forEach((it) => {
+  // Orden alfabético (insensible a acentos según la ortografía catalana).
+  const sorted = [...items].sort((a, b) => a.localeCompare(b, 'ca'));
+  sorted.forEach((it) => {
     const li = document.createElement('li');
     li.className = 'item' + (kind === ITEM_KIND.ISLAND ? ' item-island' : '');
     li.textContent = it;
@@ -40,9 +42,34 @@ export function createListSection(title, items) {
       if (panel) panel.classList.remove('open');
     });
     li.addEventListener('dragend', () => li.classList.remove('dragging'));
+    // Click para seleccionar: alternativa a arrastrar (click nombre + click mapa).
+    li.addEventListener('click', () => selectItem(li, it, kind));
     ul.appendChild(li);
   });
   return node;
+}
+
+// --- selección por click (modo "click nombre + click lugar") ---------------
+let selected = null; // { name, kind, el }
+
+function selectItem(li, name, kind) {
+  if (li.classList.contains('placed')) return;
+  if (selected && selected.el === li) { clearSelection(); return; }
+  clearSelection();
+  selected = { name, kind, el: li };
+  li.classList.add('selected');
+  // Cerrar el panel en móvil para poder tocar el mapa.
+  const panel = document.getElementById('lists-panel');
+  if (panel) panel.classList.remove('open');
+}
+
+export function getSelectedItem() {
+  return selected ? { name: selected.name, kind: selected.kind } : null;
+}
+
+export function clearSelection() {
+  if (selected && selected.el) selected.el.classList.remove('selected');
+  selected = null;
 }
 
 // Mark the draggable item matching `name`/`kind` as placed (after a correct drop).
@@ -52,6 +79,7 @@ export function markItemPlaced(name, kind) {
     if (it.dataset.key === key && it.dataset.kind === kind) {
       it.classList.add('placed');
       it.draggable = false;
+      if (selected && selected.el === it) clearSelection();
       break;
     }
   }

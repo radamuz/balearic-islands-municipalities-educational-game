@@ -1,6 +1,6 @@
 import { loadDatasources, loadMapping } from './api/client.js';
-import { createListSection, filterLists } from './ui/lists.js';
-import { setupSvgDropTargets } from './svg/dropTargets.js';
+import { createListSection, filterLists, getSelectedItem, clearSelection } from './ui/lists.js';
+import { setupSvgDropTargets, attemptPlacement } from './svg/dropTargets.js';
 import { setupZoomPan } from './svg/viewport.js';
 import { setupLabelLayer } from './svg/labelLayer.js';
 import { setupToolbar } from './ui/toolbar.js';
@@ -47,11 +47,21 @@ async function loadMap() {
   return { mapContainer, svg };
 }
 
-function onMapTap(mapContainer, ev) {
-  if (!mapContainer.classList.contains('mapping-mode')) return;
+function onMapTap(mapContainer, svg, ev) {
   const target = document.elementFromPoint(ev.clientX, ev.clientY);
-  const shapeEl = target && target.closest && target.closest('[data-shape-index]');
-  if (shapeEl) assignShapeMapping(shapeEl);
+  if (mapContainer.classList.contains('mapping-mode')) {
+    const shapeEl = target && target.closest && target.closest('[data-shape-index]');
+    if (shapeEl) assignShapeMapping(shapeEl);
+    return;
+  }
+  // Modo "click + click": si hay un nombre seleccionado, colocarlo al tocar su lugar.
+  const selected = getSelectedItem();
+  if (!selected) return;
+  const shapeEl = target && target.closest && target.closest('.svg-drop-target');
+  if (!shapeEl) return;
+  if (attemptPlacement(svg, shapeEl, selected.name, selected.kind, ev.clientX, ev.clientY)) {
+    clearSelection();
+  }
 }
 
 async function init() {
@@ -60,7 +70,7 @@ async function init() {
   if (!map) return;
   const { mapContainer, svg } = map;
 
-  setupZoomPan(mapContainer, svg, (ev) => onMapTap(mapContainer, ev));
+  setupZoomPan(mapContainer, svg, (ev) => onMapTap(mapContainer, svg, ev));
   setupLabelLayer(svg);
   setupSvgDropTargets(svg);
   setupToolbar();
