@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "balears",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "runtimeExecutable": "C:\\Users\\windows\\AppData\\Local\\nvm\\v24.18.0\\node.exe",
+      "runtimeArgs": ["src/server.js"],
       "port": 3000,
       "autoPort": true
     }

@@ -9,6 +9,7 @@ import { showStart, showFinish } from './ui/overlays.js';
 import { configure, start, onFinish } from './game/gameState.js';
 import { setInitialMapping, setAllNames } from './svg/mappingState.js';
 import { assignShapeMapping } from './svg/mappingEditor.js';
+import { maybeStartTutorial } from './ui/tutorial.js';
 
 const MAP_SVG_URL = '/images/mapa-municipal-de-les-illes-balears.svg';
 
@@ -81,7 +82,7 @@ async function init() {
 
   configure(total);
   onFinish((snapshot) => showFinish(snapshot));
-  showStart(() => start());
+  showStart(() => { start(); maybeStartTutorial(); });
 }
 
 window.addEventListener('DOMContentLoaded', init);

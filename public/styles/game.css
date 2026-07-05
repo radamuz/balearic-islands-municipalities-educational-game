@@ -91,6 +91,31 @@
   padding:1px 6px;border-radius:6px;background:rgba(46,230,214,.18);color:var(--accent);
 }
 
+/* ---- Tutorial guiat (mà + bafarada) ----------------------------------- */
+#tutorial-hand{
+  position:fixed;z-index:900;pointer-events:none;
+  transform:translateX(-50%);font-size:38px;line-height:1;
+  filter:drop-shadow(0 3px 8px rgba(0,0,0,.6));
+  transition:left .3s ease, top .3s ease;
+}
+.tutorial-finger{display:inline-block;animation:tutorial-bob .9s ease-in-out infinite}
+@keyframes tutorial-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(9px)}}
+#tutorial-bubble{
+  position:fixed;z-index:900;max-width:240px;
+  background:var(--panel-solid);border:1px solid var(--accent);border-radius:12px;
+  padding:10px 12px;box-shadow:var(--shadow);
+  display:flex;align-items:center;gap:10px;
+  transition:left .3s ease, top .3s ease;
+}
+#tutorial-bubble .tutorial-text{font-size:14px;font-weight:700}
+#tutorial-bubble .tutorial-skip{
+  border:none;background:rgba(255,255,255,.1);color:var(--muted);
+  border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer;flex-shrink:0;
+}
+#tutorial-bubble .tutorial-skip:hover{background:rgba(255,255,255,.2);color:var(--text)}
+.tutorial-pulse{animation:tutorial-pulse 1s ease-in-out infinite}
+@keyframes tutorial-pulse{0%,100%{fill-opacity:1}50%{fill-opacity:.35}}
+
 /* ---- Finish screen ---------------------------------------------------- */
 #finish-body h2{margin:0 0 18px;font-size:28px}
 .result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
