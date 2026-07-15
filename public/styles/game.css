@@ -147,6 +147,18 @@
 .score-table tr.you .who{color:var(--accent)}
 .empty{color:var(--muted);padding:18px 0}
 
+/* Admin login form */
+.admin-form{text-align:left;max-width:340px;margin:0 auto}
+.admin-form label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 6px}
+.admin-form input{
+  width:100%;padding:10px 14px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(0,0,0,.3);color:var(--text);font-size:14px;outline:none;
+}
+.admin-form input:focus{border-color:var(--accent)}
+.admin-form .finish-actions{margin-top:18px}
+.admin-error{color:var(--red);font-size:13px;margin:12px 0 0;text-align:center}
+.admin-error.hidden{display:none}
+
 @media (max-width:880px){
   #hud{gap:6px}
   .hud-cell{min-width:58px;padding:4px 8px}

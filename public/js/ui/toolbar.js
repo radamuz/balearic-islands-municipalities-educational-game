@@ -3,8 +3,9 @@ import { saveMapping } from '../api/client.js';
 import { getAllMapping } from '../svg/mappingState.js';
 import { showSolution } from '../svg/solution.js';
 import { showLeaderboard } from './overlays.js';
-import { showLeaderboardTool, showAccessLogTool } from './dataTools.js';
+import { showLeaderboardTool, showAccessLogTool, downloadMappingFile } from './dataTools.js';
 import { initFlags } from './flags.js';
+import { initAdminAuth } from './adminAuth.js';
 import { flashNotification } from './notifications.js';
 
 function closeListsPanel() {
@@ -70,8 +71,12 @@ export function setupToolbar() {
 
   on('save-mapping', 'click', async () => {
     const res = await saveMapping(getAllMapping());
-    flashNotification(res.ok ? 'Assignació guardada' : 'Error al guardar');
+    if (res.ok) flashNotification('Assignació guardada');
+    else if (res.status === 401) flashNotification('Sessió caducada, torna a entrar');
+    else flashNotification('Error al guardar');
   });
+
+  on('download-mapping', 'click', () => downloadMappingFile());
 
   on('show-solution', 'click', () => {
     const svg = container.querySelector('svg');
@@ -85,4 +90,5 @@ export function setupToolbar() {
   on('manage-accesslog', 'click', () => showAccessLogTool());
 
   initFlags();
+  initAdminAuth();
 }

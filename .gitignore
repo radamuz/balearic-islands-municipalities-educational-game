@@ -1,3 +1,10 @@
 node_modules
+
+# Secrets: AWS keys and the session secret. Never commit.
+.env
+.env.*
+!.env.example
+
+# Legacy local state — scores and the access log now live in DynamoDB.
 scores.json
 access-log.json

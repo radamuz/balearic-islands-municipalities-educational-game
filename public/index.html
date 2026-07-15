@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Illes Balears Arcade — Aprèn el mapa jugant</title>
+  <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="stylesheet" href="/styles/base.css">
   <link rel="stylesheet" href="/styles/map.css">
   <link rel="stylesheet" href="/styles/game.css">
@@ -49,14 +50,17 @@
           <button id="zoom-reset" title="Centrar mapa">⟳</button>
           <button id="leaderboard-btn" title="Classificació">🏆</button>
           <button id="toggle-lists-mobile" class="mobile-only" title="Mostrar noms">☰</button>
-          <details class="dev-tools">
+          <button id="admin-login-btn" title="Accés d'administrador">🔐</button>
+          <details class="dev-tools" style="display:none">
             <summary title="Eines">⚙️</summary>
             <div class="dev-menu">
               <button id="edit-mapping" title="Editar assignació">🗺️ Assignació</button>
               <button id="save-mapping" title="Guardar assignació">💾 Guardar</button>
+              <button id="download-mapping" title="Descarregar l'assignació com a mapping.json">⬇️ Descarregar</button>
               <button id="show-solution" title="Veure solució">👁️ Solució</button>
               <button id="manage-leaderboard" title="Gestionar classificació">🏅 Classificació</button>
               <button id="manage-accesslog" title="Registre d'accessos" style="display:none">📡 Accessos</button>
+              <button id="admin-logout" title="Tancar sessió">🚪 Tancar sessió</button>
             </div>
           </details>
         </div>
@@ -98,6 +102,10 @@
 
   <div id="accesslog-overlay" class="overlay hidden">
     <div class="overlay-card overlay-card-wide" id="accesslog-body"></div>
+  </div>
+
+  <div id="admin-login-overlay" class="overlay hidden">
+    <div class="overlay-card" id="admin-login-body"></div>
   </div>
 
   <template id="list-template">

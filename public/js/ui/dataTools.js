@@ -2,7 +2,7 @@
 //  - Leaderboard: view / download / import (replaces the current one).
 //  - Access log: interactive, filterable view / download / import (replaces it).
 
-import { loadScores, importScores, loadAccessLog, importAccessLog } from '../api/client.js';
+import { loadScores, importScores, loadAccessLog, importAccessLog, loadMapping } from '../api/client.js';
 import { formatTime } from '../game/scoring.js';
 import { flashNotification } from './notifications.js';
 
@@ -49,6 +49,26 @@ function pickJsonFile() {
     };
     input.click();
   });
+}
+
+// --- Mapping download ------------------------------------------------------
+
+// Download the live mapping (DynamoDB in production) as mapping.json. Assignments
+// edited in production can then be committed back to the repo, keeping the
+// checked-in file — which is the read fallback — from going stale.
+export async function downloadMappingFile() {
+  const mapping = await loadMapping();
+  if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
+    flashNotification('No s\'ha pogut carregar l\'assignació');
+    return;
+  }
+  const count = Object.keys(mapping).length;
+  if (!count) {
+    flashNotification('L\'assignació és buida');
+    return;
+  }
+  downloadJson('mapping.json', mapping);
+  flashNotification(`Assignació descarregada (${count} formes)`);
 }
 
 // --- Leaderboard management ------------------------------------------------
