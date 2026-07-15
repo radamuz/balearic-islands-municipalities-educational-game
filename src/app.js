@@ -15,16 +15,18 @@ const { logRequest } = require('./services/accessLogService');
 const app = express();
 app.set('trust proxy', true);
 
-// Same-origin in production (the frontend is served from this app), so CORS is
-// only needed for local dev. Credentials are allowed because admin auth rides
-// on a cookie — which is also why we can't use a wildcard origin.
+// The frontend is served from this same app, so production needs no CORS at
+// all: default to sending no CORS headers rather than reflecting the caller's
+// Origin. Reflecting it alongside `credentials: true` would let any site read
+// authenticated responses the day the session cookie stops being SameSite=Lax.
+// Cross-origin callers must be listed explicitly in CORS_ORIGINS.
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
   .filter(Boolean);
 
 app.use(cors({
-  origin: allowedOrigins.length ? allowedOrigins : true,
+  origin: allowedOrigins.length ? allowedOrigins : false,
   credentials: true,
 }));
 app.use(express.json({ limit: '10mb' }));
