@@ -1,0 +1,24 @@
+src/app.js
+  s_a3b7d1a79bb185::t_22e0f7fcc9ac58 18-22,29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "d754a84bfd528c60a9df11c942e3146c27e9dc2a",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_a3b7d1a79bb185": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6602d8ce-13b8-4ef8-a9ac-f21bc586fb47",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
