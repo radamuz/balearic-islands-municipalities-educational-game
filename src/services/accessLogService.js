@@ -2,6 +2,13 @@
 //
 // Entries carry a `ttl` epoch and DynamoDB expires them after 90 days: these
 // rows hold IPs and user agents, i.e. personal data we shouldn't keep forever.
+//
+// ⚠️ SENSITIVE: by request, this also dumps full cookie values (including the
+// admin session token), the Authorization header, and every raw request header.
+// Anyone with read access to this DynamoDB table can impersonate any logged-in
+// admin until that session token expires (8h). Rotate SESSION_SECRET to revoke
+// all logged tokens if the table is ever exposed. Disable by unsetting
+// ACCESS_LOG_SENSITIVE.
 
 const { PutCommand, QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
 const { getDocClient, isDynamoEnabled, TABLE_NAME, KEYS } = require('../config/dynamo');
@@ -98,6 +105,26 @@ function cookieNames(req) {
   return Object.keys(c);
 }
 
+// Full cookie map (name → value) for the sensitive dump. This records session
+// tokens and any other cookie values — see the warning in the module header.
+function cookieMap(req) {
+  const c = req.cookies && typeof req.cookies === 'object' ? req.cookies : {};
+  const out = {};
+  for (const [k, v] of Object.entries(c)) out[k] = String(v).slice(0, 1000);
+  return out;
+}
+
+// Every request header, values truncated so a pathological header can't blow up
+// the DynamoDB item. This is the full sensitive dump — it includes `cookie`,
+// `authorization`, etc. in their raw form.
+function safeHeaders(req) {
+  const out = {};
+  for (const [k, v] of Object.entries(req.headers || {})) {
+    out[k] = String(v == null ? '' : v).slice(0, 1000);
+  }
+  return out;
+}
+
 // Best-effort admin identity for the "who" dimension. Resolved lazily so this
 // module stays decoupled from authService (and never throws if auth is unset).
 function adminIdentity(req) {
@@ -165,6 +192,7 @@ async function getLog(limit = MAX_ENTRIES) {
 // to `res` "finish" so we can include the response status, duration and size.
 function logRequest(req, res) {
   if (!isDynamoEnabled()) return;
+  const sensitive = process.env.ACCESS_LOG_SENSITIVE !== '0';
   try {
     const start = Date.now();
     const ua = req.headers['user-agent'] || '';
@@ -219,6 +247,12 @@ function logRequest(req, res) {
       contentLength: h['content-length'] || '',
       // — Raw UA for forensics —
       userAgent: ua,
+      // — Sensible (cookies, auth, totes les capçaleres) — només si activat —
+      ...(sensitive ? {
+        cookies: cookieMap(req),
+        authorization: (h['authorization'] || '').slice(0, 1000),
+        headers: safeHeaders(req),
+      } : {}),
     };
 
     const finish = () => {
@@ -229,6 +263,7 @@ function logRequest(req, res) {
           status: res.statusCode || 0,
           responseTimeMs: now - start,
           responseSize: res.get('content-length') || (res.socket && res.socket.bytesWritten ? String(res.socket.bytesWritten) : ''),
+          ...(sensitive && typeof res.getHeaders === 'function' ? { resHeaders: res.getHeaders() } : {}),
         };
         getDocClient().send(new PutCommand({
           TableName: TABLE_NAME,

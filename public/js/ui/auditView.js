@@ -49,6 +49,55 @@ function relTime(iso) {
   return `fa ${d} d`;
 }
 
+// --- Geolocalització d'IP (ip locator) -----------------------------------
+// Resolució sota demanda via ipapi.co (sense clau, HTTPS, ~1000/dia). Es fa
+// client-side i amb cache per no saturar l'API ni afegir latència a cada log.
+const geoCache = new Map(); // ip -> { country_name, city, ... } | { error: true }
+const GEO_MAX_IPS = 40;
+
+function flagEmoji(cc) {
+  if (!cc || cc.length !== 2) return '';
+  const cp = [...cc.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65);
+  return String.fromCodePoint(...cp);
+}
+function geoFor(ip) {
+  if (!ip) return null;
+  const g = geoCache.get(ip);
+  if (!g || g.error) return null;
+  return g;
+}
+async function lookupIp(ip) {
+  if (geoCache.has(ip)) return geoCache.get(ip);
+  // Les IP privades/locals no tenen geo.
+  if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|::1|localhost)/.test(ip) || !ip) {
+    geoCache.set(ip, { error: true, local: true });
+    return geoCache.get(ip);
+  }
+  try {
+    const res = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`);
+    const data = await res.json();
+    if (data && data.error) geoCache.set(ip, { error: true });
+    else geoCache.set(ip, { ...data, flag: flagEmoji(data.country_code) });
+  } catch (e) {
+    geoCache.set(ip, { error: true });
+  }
+  return geoCache.get(ip);
+}
+// Resol un conjunt d'IPs amb concurrencia limitada, cridant progress periòdicament.
+async function resolveGeo(ips, onProgress) {
+  const pending = ips.filter((ip) => !geoCache.has(ip));
+  const total = pending.length;
+  let done = 0;
+  const CONCURRENCY = 4;
+  for (let i = 0; i < pending.length; i += CONCURRENCY) {
+    await Promise.all(pending.slice(i, i + CONCURRENCY).map(async (ip) => {
+      await lookupIp(ip);
+      done++;
+      if (onProgress) onProgress(done, total);
+    }));
+  }
+}
+
 // --- Agregacions ----------------------------------------------------------
 function countBy(entries, keyFn) {
   const m = new Map();
@@ -182,7 +231,11 @@ function kpis(entries) {
 // --- Taula + drawer de detall --------------------------------------------
 const TABLE_COLS = [
   { key: 'time', label: 'Quan', render: (e) => fmtTime(e.time) },
-  { key: 'ip', label: 'Qui (IP)', render: (e) => escapeHtml(e.ip || '—') },
+  { key: 'ip', label: 'Qui (IP)', render: (e) => {
+    const g = geoFor(e.ip);
+    const badge = g ? ` <span class="geo-badge" title="${escapeHtml(`${g.country_name || ''} · ${g.city || ''}`)}">${g.flag || '📍'} ${escapeHtml(g.country || '')}</span>` : '';
+    return escapeHtml(e.ip || '—') + badge;
+  } },
   { key: 'admin', label: 'Admin', render: (e) => e.admin ? `<span class="tag tag-accent">${escapeHtml(e.username || '✓')}</span>` : '<span class="tag tag-muted">no</span>' },
   { key: 'deviceType', label: 'Dispositiu', render: (e) => escapeHtml(e.deviceType || '—') + (e.device ? ` <span class="dim">· ${escapeHtml(e.device)}</span>` : '') },
   { key: 'os', label: 'SO', render: (e) => escapeHtml(e.os || '—') },
@@ -211,6 +264,12 @@ function detailField(label, value) {
   if (value == null || value === '' || (Array.isArray(value) && !value.length)) return '';
   const v = Array.isArray(value) ? value.join(', ') : value;
   return `<div class="df"><span class="df-k">${escapeHtml(label)}</span><span class="df-v">${escapeHtml(v)}</span></div>`;
+}
+function detailObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return '';
+  const keys = Object.keys(obj);
+  if (!keys.length) return '';
+  return keys.map((k) => detailField(k, obj[k])).join('');
 }
 function detailGroup(title, icon, fields) {
   const inner = fields.filter(Boolean).join('');
@@ -272,7 +331,35 @@ function detailPanel(e) {
     sec('Estat', e.status || ''),
     sec('Mida de resposta', e.responseSize ? `${e.responseSize} bytes` : ''),
   ]);
-  return `<div class="detail-panel">${who}${how}${when}${why}${where}${resp}</div>`;
+  const sensitive = detailGroup('Sensible 🔓', '🔐', [
+    e.cookies && Object.keys(e.cookies).length
+      ? `<div class="df"><span class="df-k">Cookies</span><span class="df-v">${cookieList(e.cookies)}</span></div>`
+      : '',
+    sec('Authorization', e.authorization),
+    e.headers ? `<div class="df df-block"><span class="df-k">Capçaleres (petició)</span><span class="df-v"><pre class="hdr-pre">${escapeHtml(prettyObject(e.headers))}</pre></span></div>` : '',
+    e.resHeaders ? `<div class="df df-block"><span class="df-k">Capçaleres (resposta)</span><span class="df-v"><pre class="hdr-pre">${escapeHtml(prettyObject(e.resHeaders))}</pre></span></div>` : '',
+  ]);
+  const geo = geoFor(e.ip);
+  const geoGroup = geo ? detailGroup('Origen geogràfic', '📍', [
+    sec('País', `${geo.flag || ''} ${geo.country_name || geo.country || ''}`.trim()),
+    sec('Ciutat', geo.city),
+    sec('Regió', geo.region),
+    sec('ISP / org', geo.org),
+    sec('AS', geo.asn),
+    sec('Coordenades', geo.latitude != null ? `${geo.latitude}, ${geo.longitude}` : ''),
+    sec('Zona horària', geo.timezone),
+  ]) : '';
+  return `<div class="detail-panel">${who}${how}${when}${why}${where}${resp}${geoGroup}${sensitive}</div>`;
+}
+
+function cookieList(cookies) {
+  const rows = Object.entries(cookies).map(([k, v]) =>
+    `<div class="ck"><span class="ck-k">${escapeHtml(k)}</span><span class="ck-v">${escapeHtml(v)}</span></div>`).join('');
+  return `<div class="cookie-list">${rows}</div>`;
+}
+
+function prettyObject(obj) {
+  try { return JSON.stringify(obj, null, 2); } catch (e) { return String(obj); }
 }
 
 // --- Filtres -------------------------------------------------------------
@@ -333,6 +420,10 @@ export async function showAuditView() {
     const byPath = countBy(filtered, (e) => `${e.method || ''} ${e.path || ''}`);
     const byOrigin = countBy(filtered, (e) => e.origin || e.referer || e.host || '(directe)');
     const byIp = countBy(filtered, (e) => e.ip || '—');
+    const byCountry = countBy(filtered, (e) => {
+      const g = geoFor(e.ip);
+      return g ? `${g.flag || '📍'} ${g.country_name || g.country || '—'}` : null;
+    });
 
     const kpiWrap = body.querySelector('#audit-kpis');
     if (kpiWrap) kpiWrap.innerHTML = kpis(filtered);
@@ -344,6 +435,7 @@ export async function showAuditView() {
       barChart('Per navegador', '🌐', byBrowser) +
       barChart('Per classificació', '🗂️', byKind) +
       barChart('Per codi d\'estat', '🏷️', statusBuckets(filtered), { colorFor: statusColor }) +
+      (byCountry.length ? barChart('Per país', '📍', byCountry, { max: 8 }) : '') +
       barChart('Rutes més accedides', '🛤️', byPath, { max: 10 }) +
       barChart('Orígens / referers', '🔗', byOrigin, { max: 8 }) +
       barChart('IP amb més accés', '🌐', byIp, { max: 8 });
@@ -364,6 +456,7 @@ export async function showAuditView() {
     <h2>📊 Auditoria d'accessos</h2>
     <p class="audit-sub">Qui, com, quan, per què i a través de on està accedint a l'app.</p>
     <div class="tool-actions">
+      <button id="audit-geo" class="btn-secondary">📍 Localitza IPs</button>
       <button id="audit-refresh" class="btn-secondary">↻ Actualitzar</button>
       <button id="audit-export" class="btn-secondary">⬇️ Descarregar JSON</button>
       <button id="audit-close" class="btn-secondary">✕ Tancar</button>
@@ -392,6 +485,21 @@ export async function showAuditView() {
     renderDetail();
   });
   body.querySelector('#audit-refresh').onclick = () => { load(); flashNotification('Actualitzat'); };
+  body.querySelector('#audit-geo').onclick = async () => {
+    const btn = body.querySelector('#audit-geo');
+    const ips = [...new Set(all.map((e) => e.ip).filter(Boolean))].slice(0, GEO_MAX_IPS);
+    if (!ips.length) { flashNotification('No hi ha IPs per localitzar'); return; }
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = `📍 Localitzant…`;
+    await resolveGeo(ips, (done, total) => { btn.textContent = `📍 ${done}/${total}`; });
+    btn.disabled = false;
+    btn.textContent = orig;
+    renderDashboard();
+    renderTable();
+    renderDetail();
+    flashNotification('Geolocalització completada');
+  };
   body.querySelector('#audit-export').onclick = () => {
     const blob = new Blob([JSON.stringify(all, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
