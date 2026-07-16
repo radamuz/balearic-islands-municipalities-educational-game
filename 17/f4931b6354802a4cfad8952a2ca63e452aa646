@@ -1,0 +1,40 @@
+public/js/ui/auditView.js
+  s_d5b440404bdfdf::t_bb466cf4c267ab 334-362
+  s_d5b440404bdfdf::t_08efca54a79426 423-426,438
+  s_d5b440404bdfdf::t_3c6b22ce9061b6 268-273
+  s_d5b440404bdfdf::t_eecc0328dde205 234-238
+  s_d5b440404bdfdf::t_099f3b44ab3afb 488-502
+  s_d5b440404bdfdf::t_7e32a6aeb0dd29 459
+  s_d5b440404bdfdf::t_e2a1c4f5099f05 52-100
+public/styles/game.css
+  s_d5b440404bdfdf::t_78415c07f3a042 156-167
+src/services/accessLogService.js
+  s_d5b440404bdfdf::t_134f6b042536fa 5-11
+  s_d5b440404bdfdf::t_f0742cebbbf456 108-127
+  s_d5b440404bdfdf::t_f85521425eeab9 195
+  s_d5b440404bdfdf::t_4c6e790510ea43 250-255
+  s_d5b440404bdfdf::t_a54ba15a0117f7 266
+.env.example
+  s_d5b440404bdfdf::t_24975ac311554c 21-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "17f4931b6354802a4cfad8952a2ca63e452aa646",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_d5b440404bdfdf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7762db0a-6038-4138-b263-85f1daee3c23",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
