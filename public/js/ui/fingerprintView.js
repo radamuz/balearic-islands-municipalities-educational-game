@@ -92,7 +92,7 @@ function confidenceLabel(score) {
 
 async function compute() {
   const fp = await FingerprintJS.load();
-  return fp.get();
+  return fp.get(); // get() és asíncrona — la crida fa await a render()
 }
 
 export async function showFingerprintView() {

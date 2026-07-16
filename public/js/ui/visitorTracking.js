@@ -16,14 +16,20 @@ export async function initVisitorTracking() {
     if (sessionStorage.getItem(REPORTED_KEY)) return;
 
     const fp = await FingerprintJS.load();
-    const result = fp.get();
+    const result = await fp.get(); // get() és asíncrona — cal await
     const { visitorId, confidence, components } = result;
+    if (!visitorId) throw new Error('FingerprintJS no ha retornat visitorId');
 
-    // Components poden ser grans; només calen al backend per classificar i
-    // mostrar. S'hi envien senceres (la ruta ja les limita).
-    await reportVisitor(visitorId, confidence?.score ?? null, components);
-    sessionStorage.setItem(REPORTED_KEY, '1');
+    const res = await reportVisitor(visitorId, confidence?.score ?? null, components);
+    // Només marquem la gate si el POST ha anat bé; així un error transititori
+    // es reintenta en la propera càrrega en lloc de silenciar-se per sempre.
+    if (res && res.ok) {
+      sessionStorage.setItem(REPORTED_KEY, '1');
+    } else {
+      console.warn('[visitorTracking] reportVisitor ha fallat:', res);
+    }
   } catch (e) {
-    // Silenciat: el tracking mai ha de trencar l'app.
+    // No blocant, però visible a consola per poder depurar.
+    console.warn('[visitorTracking] error:', e && e.message ? e.message : e);
   }
 }

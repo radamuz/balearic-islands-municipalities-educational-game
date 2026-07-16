@@ -43,6 +43,52 @@ function mallorquinNameFor(visitorId) {
   return MALLORQUIN_NAMES[idx];
 }
 
+// Nom llegible generat automàticament quan s'esgoten els noms mallorquins.
+// Format "Amic 1234" — determinista per visitorId perquè sigui estable.
+function autoReadableName(visitorId) {
+  return 'Amic ' + (1000 + (hashStr(String(visitorId || '')) % 9000));
+}
+
+// Conjunt de noms ja en ús (per evitar col·lisions). Escaneja només quan es
+// crea un visitant nou, així no carrega les escriptures recurrents.
+async function usedNames() {
+  const used = new Set();
+  if (!isDynamoEnabled()) return used;
+  try {
+    let startKey;
+    do {
+      const res = await getDocClient().send(new ScanCommand({
+        TableName: TABLE_NAME,
+        FilterExpression: 'pk = :pk',
+        ExpressionAttributeValues: { ':pk': KEYS.VISITOR },
+        ProjectionExpression: '#n',
+        ExpressionAttributeNames: { '#n': 'name' },
+        ExclusiveStartKey: startKey,
+      }));
+      for (const it of (res.Items || [])) if (it.name) used.add(it.name);
+      startKey = res.LastEvaluatedKey;
+    } while (startKey);
+  } catch (err) {
+    console.error('[visitors] usedNames failed:', err.message);
+  }
+  return used;
+}
+
+// Tria un nom per a un visitant nou: el mallorquí determinista si està lliure,
+// un altre mallorquí lliure si el primer està agafat, o un nom llegible auto
+// si tots els mallorquins estan esgotats.
+async function pickUniqueName(visitorId) {
+  const used = await usedNames();
+  const base = mallorquinNameFor(visitorId);
+  if (!used.has(base)) return base;
+  for (const n of MALLORQUIN_NAMES) if (!used.has(n)) return n;
+  let name = autoReadableName(visitorId);
+  // Molt improbable, però si el nom auto també col·lisiona, append un sufix.
+  let i = 2;
+  while (used.has(name)) name = `${autoReadableName(visitorId)}·${i++}`;
+  return name;
+}
+
 // --- Classificació humà / bot -------------------------------------------
 const BOT_UA = /bot|crawl|spid|slurp|baidu|bing|yandex|facebookexternalhit|twitterbot|linkedinbot|whatsapp|telegram|headless|phantom|selenium|puppeteer|wget|curl|python-requests|python\/|scrapy|httpclient|go-http-client|googlebot|adsbot|pagefetch|preview|skype|discord|slackbot|applebot|bytespider|semrush|ahrefsbot|mj12bot|dotbot|petalbot|crawler|fetcher|archive/i;
 
@@ -117,7 +163,7 @@ async function upsertVisitor({ visitorId, confidence, components, userAgent, ip,
       pk: KEYS.VISITOR,
       sk: String(visitorId),
       visitorId: String(visitorId),
-      name: mallorquinNameFor(visitorId),
+      name: await pickUniqueName(visitorId),
       firstSeen: now,
       lastSeen: now,
       visitCount: 1,
