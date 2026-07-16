@@ -8,7 +8,7 @@
 // La classificació humà/bot es fa per heurística sobre l'User-Agent i, si n'hi
 // ha, senyals del fingerprint (HeadlessChrome, etc.).
 
-const { GetCommand, PutCommand, ScanCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
+const { GetCommand, PutCommand, QueryCommand, DeleteCommand } = require('@aws-sdk/lib-dynamodb');
 const { getDocClient, isDynamoEnabled, TABLE_NAME, KEYS } = require('../config/dynamo');
 const { parseUserAgent } = require('./accessLogService');
 
@@ -49,17 +49,17 @@ function autoReadableName(visitorId) {
   return 'Amic ' + (1000 + (hashStr(String(visitorId || '')) % 9000));
 }
 
-// Conjunt de noms ja en ús (per evitar col·lisions). Escaneja només quan es
-// crea un visitant nou, així no carrega les escriptures recurrents.
+// Conjunt de noms ja en ús (per evitar col·lisions). Query sobre la partició
+// VISITOR (Scan no està permès per la política IAM de producció).
 async function usedNames() {
   const used = new Set();
   if (!isDynamoEnabled()) return used;
   try {
     let startKey;
     do {
-      const res = await getDocClient().send(new ScanCommand({
+      const res = await getDocClient().send(new QueryCommand({
         TableName: TABLE_NAME,
-        FilterExpression: 'pk = :pk',
+        KeyConditionExpression: 'pk = :pk',
         ExpressionAttributeValues: { ':pk': KEYS.VISITOR },
         ProjectionExpression: '#n',
         ExpressionAttributeNames: { '#n': 'name' },
@@ -191,16 +191,25 @@ function toVisitor(item) {
 }
 
 // --- Llista / detall / esborra / renombra -------------------------------
+// Query sobre la partició VISITOR (Scan no està permès a producció). Pagina
+// fins a MAX_VISITORS per no deixar res per darrere.
 async function listVisitors() {
   if (!isDynamoEnabled()) return [];
   try {
-    const res = await getDocClient().send(new ScanCommand({
-      TableName: TABLE_NAME,
-      FilterExpression: 'pk = :pk',
-      ExpressionAttributeValues: { ':pk': KEYS.VISITOR },
-      Limit: MAX_VISITORS,
-    }));
-    return (res.Items || []).map(toVisitor).sort((a, b) =>
+    const items = [];
+    let startKey;
+    do {
+      const res = await getDocClient().send(new QueryCommand({
+        TableName: TABLE_NAME,
+        KeyConditionExpression: 'pk = :pk',
+        ExpressionAttributeValues: { ':pk': KEYS.VISITOR },
+        ExclusiveStartKey: startKey,
+        Limit: 200,
+      }));
+      items.push(...(res.Items || []));
+      startKey = res.LastEvaluatedKey;
+    } while (startKey && items.length < MAX_VISITORS);
+    return items.slice(0, MAX_VISITORS).map(toVisitor).sort((a, b) =>
       new Date(b.lastSeen || 0) - new Date(a.lastSeen || 0));
   } catch (err) {
     console.error('[visitors] list failed:', err.message);
