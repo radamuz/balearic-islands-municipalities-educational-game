@@ -1,0 +1,24 @@
+public/js/svg/viewport.js
+  s_084e22600010b9::t_335c711b4a1ca5 207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "5f00e0b547456ac7c60089d52aa5e3f8811aa8f5",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_084e22600010b9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4aafccf8-2cc9-40bd-826d-1e30babb0d4f",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
