@@ -10,7 +10,9 @@ const scoresRouter = require('./routes/scores');
 const accessLogRouter = require('./routes/accessLog');
 const flagsRouter = require('./routes/flags');
 const authRouter = require('./routes/auth');
+const visitorsRouter = require('./routes/visitors');
 const { logRequest } = require('./services/accessLogService');
+const { VISITOR_COOKIE } = require('./services/visitorService');
 
 const app = express();
 app.set('trust proxy', true);
@@ -34,8 +36,12 @@ app.use(cookieParser());
 
 // Record every incoming access (IP, device, browser, path…). The access-log
 // endpoints themselves are skipped so viewing/exporting doesn't pollute the log.
+// Stamp the visitor fingerprint id from the cookie so the audit can join.
 app.use((req, res, next) => {
-  if (!req.path.startsWith('/api/access-log')) logRequest(req, res);
+  if (!req.path.startsWith('/api/access-log')) {
+    req.visitorId = req.cookies && req.cookies[VISITOR_COOKIE] || '';
+    logRequest(req, res);
+  }
   next();
 });
 
@@ -49,5 +55,6 @@ app.use('/api/mapping', mappingRouter);
 app.use('/api/scores', scoresRouter);
 app.use('/api/access-log', accessLogRouter);
 app.use('/api/flags', flagsRouter);
+app.use('/api/visitors', visitorsRouter);
 
 module.exports = app;

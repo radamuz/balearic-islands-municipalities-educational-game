@@ -19,6 +19,7 @@ const KEYS = {
   SCORE: 'SCORE',
   ACCESS: 'ACCESS',
   ADMIN: 'ADMIN',
+  VISITOR: 'VISITOR',
 };
 
 let docClient = null;

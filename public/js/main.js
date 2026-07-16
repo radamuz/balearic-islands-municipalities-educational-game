@@ -10,6 +10,7 @@ import { configure, start, onFinish } from './game/gameState.js';
 import { setInitialMapping, setAllNames } from './svg/mappingState.js';
 import { assignShapeMapping } from './svg/mappingEditor.js';
 import { maybeStartTutorial } from './ui/tutorial.js';
+import { initVisitorTracking } from './ui/visitorTracking.js';
 
 const MAP_SVG_URL = '/images/mapa-municipal-de-les-illes-balears.svg';
 
@@ -83,6 +84,9 @@ async function init() {
   configure(total);
   onFinish((snapshot) => showFinish(snapshot));
   showStart(() => { start(); maybeStartTutorial(); });
+
+  // Tracking de visitants (fingerprint) — no-bloquejant, fire-and-forget.
+  initVisitorTracking();
 }
 
 window.addEventListener('DOMContentLoaded', init);

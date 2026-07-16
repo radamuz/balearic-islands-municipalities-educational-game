@@ -6,6 +6,7 @@ import { showLeaderboard } from './overlays.js';
 import { showLeaderboardTool, showAccessLogTool, downloadMappingFile } from './dataTools.js';
 import { showAuditView } from './auditView.js';
 import { showFingerprintView } from './fingerprintView.js';
+import { showVisitorsView } from './visitorsView.js';
 import { initFlags } from './flags.js';
 import { initAdminAuth } from './adminAuth.js';
 import { flashNotification } from './notifications.js';
@@ -92,6 +93,7 @@ export function setupToolbar() {
   on('manage-accesslog', 'click', () => showAccessLogTool());
   on('manage-audit', 'click', () => showAuditView());
   on('manage-fingerprint', 'click', () => showFingerprintView());
+  on('manage-visitors', 'click', () => showVisitorsView());
 
   initFlags();
   initAdminAuth();

@@ -124,3 +124,52 @@ export async function loadFlags() {
     return {};
   }
 }
+
+// --- Visitants (fingerprint) ---------------------------------------------
+
+// Envia l'empremta del navegador al backend per registrar/actualitzar el
+// visitant. Públic (no admin). Retorna { ok, name, bot } o null.
+export async function reportVisitor(visitorId, confidence, components) {
+  try {
+    const res = await fetch('/api/visitors', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ visitorId, confidence, components }),
+    });
+    return res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+// Llista de visitants (admin).
+export async function loadVisitors() {
+  try {
+    const res = await fetch('/api/visitors', { credentials: 'include' });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+// Renombra un visitant (admin).
+export async function renameVisitor(visitorId, name) {
+  const res = await fetch(`/api/visitors/${encodeURIComponent(visitorId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ name }),
+  });
+  return res.json();
+}
+
+// Esborra un visitant (admin).
+export async function deleteVisitor(visitorId) {
+  const res = await fetch(`/api/visitors/${encodeURIComponent(visitorId)}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  return res.json();
+}

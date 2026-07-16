@@ -211,6 +211,7 @@ function logRequest(req, res) {
       // — Who —
       ip: clientIp(req),
       ...identity,
+      visitorId: req.visitorId || '',
       cookieNames: cookieNames(req),
       // — How (client) —
       method: req.method,
