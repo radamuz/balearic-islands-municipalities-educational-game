@@ -204,6 +204,6 @@ export function setupZoomPan(container, svg, onTap) {
   container.addEventListener('pointercancel', removePointer);
 
   container.addEventListener('dblclick', (ev) => {
-    zoomAround(clientToSvgPoint(ev.clientX, ev.clientY), 1.15);
+    zoomAround(clientToSvgPoint(ev.clientX, ev.clientY), 2);
   });
 }
