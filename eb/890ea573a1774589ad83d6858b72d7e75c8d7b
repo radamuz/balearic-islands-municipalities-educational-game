@@ -1,0 +1,53 @@
+public/js/main.js
+  s_d5b440404bdfdf::t_9ecabb90b64388 87-89
+  s_d5b440404bdfdf::t_877f3a7e375cfa 13
+public/js/ui/toolbar.js
+  s_d5b440404bdfdf::t_0331838c7f0bc4 96
+  s_d5b440404bdfdf::t_24896c1ce1d97d 9
+public/js/ui/flags.js
+  s_d5b440404bdfdf::t_55a2e8b6cd7bcf 8
+public/styles/game.css
+  s_d5b440404bdfdf::t_41d63a3808380c 225-247
+src/routes/visitors.js
+  s_d5b440404bdfdf::t_f9e798116274e4 1-93
+src/config/dynamo.js
+  s_d5b440404bdfdf::t_f594e7c800a712 22
+public/index.html
+  s_d5b440404bdfdf::t_0cab701c3516b9 118-121
+  s_d5b440404bdfdf::t_fd873904455b93 65
+src/services/visitorService.js
+  s_d5b440404bdfdf::t_88659bfa212849 1-193
+src/app.js
+  s_d5b440404bdfdf::t_b5c3aeddf8d9a9 39,41-44
+  s_d5b440404bdfdf::t_028ea079c234cd 58
+  s_d5b440404bdfdf::t_3fcb27f1208389 13,15
+src/services/accessLogService.js
+  s_d5b440404bdfdf::t_4ab55a3e3cb5c9 214
+public/js/ui/visitorTracking.js
+  s_d5b440404bdfdf::t_e2f4a25fbb8336 1-29
+public/js/api/client.js
+  s_d5b440404bdfdf::t_189c829fe061ba 127-175
+public/js/ui/visitorsView.js
+  s_d5b440404bdfdf::t_8f29890a1c01c6 1-370
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "eb890ea573a1774589ad83d6858b72d7e75c8d7b",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_d5b440404bdfdf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7762db0a-6038-4138-b263-85f1daee3c23",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
