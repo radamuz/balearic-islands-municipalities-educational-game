@@ -1,0 +1,29 @@
+src/services/visitorService.js
+  s_d5b440404bdfdf::t_ec1d2a55805c18 166
+  s_d5b440404bdfdf::t_cb3aa0a4b178d9 46-91
+public/js/ui/visitorTracking.js
+  s_d5b440404bdfdf::t_92b7f60e91d364 19,21,23-30,32-33
+public/js/ui/fingerprintView.js
+  s_d5b440404bdfdf::t_eb2d8d20ec5def 95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "00bd58311961b255e9bae4c7a83eae16b44768a1",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_d5b440404bdfdf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7762db0a-6038-4138-b263-85f1daee3c23",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
