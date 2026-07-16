@@ -10,7 +10,7 @@
  * Copyright 2015-present FingerprintJS, Inc.
  */
 
-import { __awaiter, __generator, __assign, __spreadArray } from 'tslib';
+import { __awaiter, __generator, __assign, __spreadArray } from './tslib.es6.js';
 
 var version = "4.5.1";
 
