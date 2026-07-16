@@ -1,11 +1,37 @@
 // Transient toast in the corner (used for non-gameplay messages).
+// Multiple toasts stack vertically so they are always superposed and visible.
+const activeToasts = [];
+const TOAST_GAP = 10;
+
+function relayoutToasts() {
+  let bottom = 18;
+  for (const t of activeToasts) {
+    t.el.style.bottom = bottom + 'px';
+    bottom += t.el.offsetHeight + TOAST_GAP;
+  }
+}
+
 export function flashNotification(text) {
   const n = document.createElement('div');
   n.className = 'notification';
   n.textContent = text;
   document.body.appendChild(n);
-  setTimeout(() => n.classList.add('show'));
-  setTimeout(() => { n.classList.remove('show'); setTimeout(() => n.remove(), 250); }, 1400);
+  const entry = { el: n };
+  activeToasts.push(entry);
+  // Measure after layout, then position above existing toasts.
+  requestAnimationFrame(() => {
+    relayoutToasts();
+    n.classList.add('show');
+  });
+  setTimeout(() => {
+    n.classList.remove('show');
+    setTimeout(() => {
+      n.remove();
+      const i = activeToasts.indexOf(entry);
+      if (i !== -1) activeToasts.splice(i, 1);
+      relayoutToasts();
+    }, 250);
+  }, 1400);
 }
 
 // Floating score/combo popup that rises from the drop point and fades out.
