@@ -1,0 +1,40 @@
+public/js/ui/fingerprintView.js
+  s_d5b440404bdfdf::t_bb72207b6fd4b4 1-145,147-158
+  s_d5b440404bdfdf::t_b57e480a5295cc 146
+public/styles/game.css
+  s_d5b440404bdfdf::t_30908fdb5703ae 169-198,200-224
+  s_d5b440404bdfdf::t_b5b10bacb06b00 199
+public/index.html
+  s_d5b440404bdfdf::t_d90de2b99c39d5 113-116
+  s_d5b440404bdfdf::t_ed4854946b4628 64
+public/js/ui/flags.js
+  s_d5b440404bdfdf::t_cbf6eec36c4099 8
+public/js/ui/toolbar.js
+  s_d5b440404bdfdf::t_b4986f062c17cb 94
+  s_d5b440404bdfdf::t_8c16a3a046cc39 8
+public/js/vendor/fingerprintjs.LICENSE
+  s_d5b440404bdfdf::t_6c7012b41a6f4d 1-7
+public/js/vendor/fingerprintjs.esm.js
+  s_d5b440404bdfdf::t_05a3b280a517a2 1-3189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "ea6e0893ac47f17f75d3a2e8e61c92774d3d5e27",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_d5b440404bdfdf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7762db0a-6038-4138-b263-85f1daee3c23",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
