@@ -1,0 +1,26 @@
+public/styles/game.css
+  s_3da7628fb1ea32::t_85078924c2ac63 28
+public/js/ui/notifications.js
+  s_3da7628fb1ea32::t_eec5761d2906da 2-13,19-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "38e2671f2a6ca1eaabd9cd216d79984a322cfcfb",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_3da7628fb1ea32": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "412e1035-5594-48b5-9979-95d18cb188b7",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
