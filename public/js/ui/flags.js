@@ -5,7 +5,7 @@ import { loadFlags } from '../api/client.js';
 
 // Each flag: the toolbar elements it shows/hides when enabled.
 const FLAG_META = {
-  accessLog: { targets: ['#manage-accesslog'] },
+  accessLog: { targets: ['#manage-accesslog', '#manage-audit'] },
 };
 
 function applyFlags(flags) {

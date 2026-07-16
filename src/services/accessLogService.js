@@ -56,7 +56,72 @@ function parseUserAgent(ua) {
 function clientIp(req) {
   const fwd = req.headers['x-forwarded-for'];
   if (fwd) return String(fwd).split(',')[0].trim();
+  if (req.headers['x-real-ip']) return String(req.headers['x-real-ip']).trim();
+  if (req.headers['cf-connecting-ip']) return String(req.headers['cf-connecting-ip']).trim();
   return (req.ip || req.socket?.remoteAddress || '').replace(/^::ffff:/, '');
+}
+
+// Primary Accept-Language tag plus the full header (truncated) — tells us the
+// user's preferred locale(s), useful to know "who" in aggregate.
+function languages(req) {
+  const full = (req.headers['accept-language'] || '').slice(0, 120);
+  const primary = full.split(',')[0].split(';')[0].trim();
+  return { primary, full };
+}
+
+// Classify the request so the dashboard can split API vs page vs asset traffic
+// without re-deriving it client-side.
+function classify(path) {
+  if (!path) return 'other';
+  if (path.startsWith('/api/')) return 'api';
+  if (/\.(js|css|svg|png|jpe?g|gif|ico|woff2?|ttf|map|json|txt)$/i.test(path)) return 'static';
+  if (path === '/' || path === '/index.html') return 'page';
+  return 'other';
+}
+
+// Query string as a stable object with oversized values trimmed, so a huge
+// payload can't blow up the DynamoDB item.
+function safeQuery(req) {
+  const q = req.query || {};
+  const out = {};
+  for (const [k, v] of Object.entries(q)) {
+    const s = String(v == null ? '' : v);
+    out[k] = s.length > 200 ? s.slice(0, 200) + '…' : s;
+  }
+  return out;
+}
+
+// Cookie *names* only — never values. Lets the dashboard show whether a session
+// was already present on the incoming request.
+function cookieNames(req) {
+  const c = req.cookies && typeof req.cookies === 'object' ? req.cookies : {};
+  return Object.keys(c);
+}
+
+// Best-effort admin identity for the "who" dimension. Resolved lazily so this
+// module stays decoupled from authService (and never throws if auth is unset).
+function adminIdentity(req) {
+  try {
+    const { SESSION_COOKIE, verifyToken } = require('../services/authService');
+    const token = req.cookies && req.cookies[SESSION_COOKIE];
+    const username = verifyToken(token);
+    return username ? { admin: true, username } : { admin: false, username: null };
+  } catch (e) {
+    return { admin: false, username: null };
+  }
+}
+
+// Sec-Fetch-* metadata — the modern signal for "why / through where": site
+// (cross-site/same-origin/none), mode (cors/no-cors/navigate), dest (document/
+// script/style/image/empty…), user. Absent on non-secure or old clients.
+function secFetch(req) {
+  const h = req.headers;
+  return {
+    site: h['sec-fetch-site'] || '',
+    mode: h['sec-fetch-mode'] || '',
+    dest: h['sec-fetch-dest'] || '',
+    user: h['sec-fetch-user'] || '',
+  };
 }
 
 // Sort key: newest-first. Timestamps are inverted against a far-future epoch so
@@ -93,32 +158,102 @@ async function getLog(limit = MAX_ENTRIES) {
   }
 }
 
-// Record one access. Fire-and-forget by design: callers don't await it, and any
-// failure is swallowed — logging must never break or delay a request.
-function logRequest(req) {
+// Record one access with the maximum detail viable for a web request.
+//
+// Fire-and-forget by design: the Put is not awaited and any failure is
+// swallowed — logging must never break or delay a request. The write is deferred
+// to `res` "finish" so we can include the response status, duration and size.
+function logRequest(req, res) {
   if (!isDynamoEnabled()) return;
   try {
+    const start = Date.now();
     const ua = req.headers['user-agent'] || '';
-    const now = Date.now();
-    const entry = {
-      time: new Date(now).toISOString(),
+    const h = req.headers;
+    const langs = languages(req);
+    const identity = adminIdentity(req);
+    const fullUrl = req.originalUrl || req.url || '';
+    const pathOnly = req.path || fullUrl.split('?')[0] || '';
+    const sec = secFetch(req);
+    const xff = h['x-forwarded-for'] ? String(h['x-forwarded-for']) : '';
+    const proto = h['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+
+    // Built once, augmented with response fields on finish.
+    const baseEntry = {
+      time: new Date(start).toISOString(),
+      // — Who —
       ip: clientIp(req),
+      ...identity,
+      cookieNames: cookieNames(req),
+      // — How (client) —
       method: req.method,
-      path: req.originalUrl || req.url,
+      httpVersion: req.httpVersion || '',
       ...parseUserAgent(ua),
-      language: (req.headers['accept-language'] || '').split(',')[0] || '',
-      referer: req.headers['referer'] || req.headers['referrer'] || '',
+      language: langs.primary,
+      acceptLanguage: langs.full,
+      accept: (h['accept'] || '').slice(0, 200),
+      dnt: h['dnt'] || '',
+      // — When — (time, plus duration filled on finish)
+      // — Why / intent —
+      path: pathOnly,
+      query: safeQuery(req),
+      kind: classify(pathOnly),
+      fetch: Boolean(h['x-requested-with'] || sec.mode === 'cors' || sec.mode === 'no-cors'),
+      xhr: h['x-requested-with'] === 'XMLHttpRequest',
+      secFetchSite: sec.site,
+      secFetchMode: sec.mode,
+      secFetchDest: sec.dest,
+      secFetchUser: sec.user,
+      // — Through where (origin / host / proxy chain) —
+      host: h['host'] || '',
+      origin: h['origin'] || '',
+      referer: h['referer'] || h['referrer'] || '',
+      protocol: proto,
+      secure: Boolean(req.secure),
+      xForwardedFor: xff,
+      xForwardedProto: h['x-forwarded-proto'] || '',
+      xForwardedHost: h['x-forwarded-host'] || '',
+      xRealIp: h['x-real-ip'] || '',
+      cfConnectingIp: h['cf-connecting-ip'] || '',
+      // — Request body hints —
+      contentType: (h['content-type'] || '').slice(0, 120),
+      contentLength: h['content-length'] || '',
+      // — Raw UA for forensics —
       userAgent: ua,
     };
-    getDocClient().send(new PutCommand({
-      TableName: TABLE_NAME,
-      Item: {
-        pk: KEYS.ACCESS,
-        sk: accessSortKey(now),
-        ttl: Math.floor(now / 1000) + RETENTION_DAYS * 24 * 60 * 60,
-        ...entry,
-      },
-    })).catch(() => {});
+
+    const finish = () => {
+      try {
+        const now = Date.now();
+        const entry = {
+          ...baseEntry,
+          status: res.statusCode || 0,
+          responseTimeMs: now - start,
+          responseSize: res.get('content-length') || (res.socket && res.socket.bytesWritten ? String(res.socket.bytesWritten) : ''),
+        };
+        getDocClient().send(new PutCommand({
+          TableName: TABLE_NAME,
+          Item: {
+            pk: KEYS.ACCESS,
+            sk: accessSortKey(now),
+            ttl: Math.floor(now / 1000) + RETENTION_DAYS * 24 * 60 * 60,
+            ...entry,
+          },
+        })).catch(() => {});
+      } catch (e) {
+        // Never let logging break a request.
+      }
+    };
+
+    // "finish" fires after headers + body are sent; "close" covers aborted
+    // responses where "finish" may not. Listen once, whichever comes first.
+    let done = false;
+    const once = (fn) => () => { if (!done) { done = true; fn(); } };
+    if (res && typeof res.on === 'function') {
+      res.on('finish', once(finish));
+      res.on('close', once(finish));
+    } else {
+      finish();
+    }
   } catch (e) {
     // Never let logging break a request.
   }

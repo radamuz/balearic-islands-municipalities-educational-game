@@ -4,6 +4,7 @@ import { getAllMapping } from '../svg/mappingState.js';
 import { showSolution } from '../svg/solution.js';
 import { showLeaderboard } from './overlays.js';
 import { showLeaderboardTool, showAccessLogTool, downloadMappingFile } from './dataTools.js';
+import { showAuditView } from './auditView.js';
 import { initFlags } from './flags.js';
 import { initAdminAuth } from './adminAuth.js';
 import { flashNotification } from './notifications.js';
@@ -88,6 +89,7 @@ export function setupToolbar() {
 
   on('manage-leaderboard', 'click', () => showLeaderboardTool());
   on('manage-accesslog', 'click', () => showAccessLogTool());
+  on('manage-audit', 'click', () => showAuditView());
 
   initFlags();
   initAdminAuth();

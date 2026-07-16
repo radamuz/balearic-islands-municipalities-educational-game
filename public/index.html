@@ -60,6 +60,7 @@
               <button id="show-solution" title="Veure solució">👁️ Solució</button>
               <button id="manage-leaderboard" title="Gestionar classificació">🏅 Classificació</button>
               <button id="manage-accesslog" title="Registre d'accessos" style="display:none">📡 Accessos</button>
+              <button id="manage-audit" title="Auditoria d'accessos" style="display:none">📊 Auditoria</button>
               <button id="admin-logout" title="Tancar sessió">🚪 Tancar sessió</button>
             </div>
           </details>
@@ -102,6 +103,10 @@
 
   <div id="accesslog-overlay" class="overlay hidden">
     <div class="overlay-card overlay-card-wide" id="accesslog-body"></div>
+  </div>
+
+  <div id="audit-overlay" class="overlay hidden">
+    <div class="overlay-card overlay-card-wide overlay-card-audit" id="audit-body"></div>
   </div>
 
   <div id="admin-login-overlay" class="overlay hidden">

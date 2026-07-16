@@ -35,7 +35,7 @@ app.use(cookieParser());
 // Record every incoming access (IP, device, browser, path…). The access-log
 // endpoints themselves are skipped so viewing/exporting doesn't pollute the log.
 app.use((req, res, next) => {
-  if (!req.path.startsWith('/api/access-log')) logRequest(req);
+  if (!req.path.startsWith('/api/access-log')) logRequest(req, res);
   next();
 });
 
