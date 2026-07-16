@@ -1,0 +1,28 @@
+public/js/vendor/fingerprintjs.esm.js
+  s_d5b440404bdfdf::t_e577706c755dc4 13
+public/js/vendor/tslib.LICENSE
+  s_d5b440404bdfdf::t_69a1d8f8dcce7a 1-12
+public/js/vendor/tslib.es6.js
+  s_d5b440404bdfdf::t_088bf5761994c1 1-393
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.14",
+  "base_commit_sha": "a44071f47faa828825e88b9dded8cbd2115af397",
+  "prompts": {},
+  "humans": {
+    "h_bdd5039b181e99": {
+      "author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  },
+  "sessions": {
+    "s_d5b440404bdfdf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7762db0a-6038-4138-b263-85f1daee3c23",
+        "model": "glm-5.2"
+      },
+      "human_author": "Raúl Adamuz <raul.adamuzcano@plexus.es>"
+    }
+  }
+}
